@@ -6,7 +6,6 @@ import
 type
     DepGraph* = ref object of Class
 
-
     Requirement* = object of Class
         repository: Repository
         condition: string

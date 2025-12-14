@@ -14,7 +14,6 @@ export
 type
     SettingsData = object
         meta* = newJObject()
-        build* = newJObject()
         sources* = initOrderedTable[string, Source]()
         packages* = initOrderedTable[string, Package]()
 
@@ -23,9 +22,6 @@ type
         index*: OrderedTable[string, string]
 
 begin Settings:
-    method validateBuild(node: JsonNode): void {. base .} =
-        discard
-
     method validatePackages(node: JsonNode): void {. base .} =
         if node.kind != JObject:
             raise newException(ValueError, "`packages` must be an object.")
@@ -70,6 +66,10 @@ begin Settings:
                     fmt "`sources` value for '{key}' contains invalid URL value: {getCurrentExceptionMsg()}"
                 )
 
+    method validateMeta(node: JsonNode): void {. base .} =
+        discard
+
+
     method validate(node: JsonNode): void {. base .} =
         try:
             if node.kind != JObject:
@@ -77,7 +77,7 @@ begin Settings:
             for key, value in node:
                 case key:
                     of "meta":
-                        discard
+                        this.validateMeta(value)
 
                     of "sources":
                         this.validateSources(value)
@@ -88,9 +88,6 @@ begin Settings:
                         this.validatePackages(value)
                         for name, url in value:
                             this.data.packages[name] = Package.init(getStr(url))
-
-                    of "build":
-                        this.validateBuild(value)
 
                     else:
                         raise newException(ValueError, fmt "unknown configuration key '{key}'")
