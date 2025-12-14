@@ -3,7 +3,7 @@
 
 Percy (short for Perseus, _the greek hero that turned Atlas into stone_) is a different approach to package management for Nim.  Unlike others, it doesn't use package names (at least not in the traditional sense).  Instead, it relies solely on URLs for all package resolution.  In fact, you can name your packages almost whatever you like.
 
-Don't worry though, your existing packages are safe with Percy.  In fact, Percy make it even easier for you to manage your own package sources including by creating your very own package repository.
+Don't worry though, your existing packages are safe with Percy.  In fact, Percy make it even easier for you to manage your own package sources by creating your very own package repository with no "special treatment" compared to any other.
 
 > NOTE: Percy isn't actually completed yet.  If you want to play around you can clone this repo and install it with `atlas`
 >
