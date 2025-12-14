@@ -252,7 +252,7 @@ percy unset package semver
 If `semver` is part of a source repository, this will have no effect, but you can remove an entire repository:
 
 ```bash
-percy unset source nim-lang	
+percy unset source nim-lang
 ```
 
 #### Building / Tasks / Etc
@@ -260,3 +260,5 @@ percy unset source nim-lang
 Percy does not aim to replace your build / installation system.  As a package manager, it is focused on gracefully handling packages and solving the madness therein.  In all the examples above we use `nim.cfg` based path configuration as `nim` itself also supports tasks via `config.nims`.  Flags and/or autodetection may be added to see whether or not `--path` entries should be added to `nim.cfg` or `nimble.paths`, but nothing has been decided yet.
 
 While Percy intends to continue using `.nimble` files for the foreseeable future, it's not really intended to be mixed with other package managers.
+
+If you're curious to see how we build with `nim build`, check out [the config.nims file](./config.nims)

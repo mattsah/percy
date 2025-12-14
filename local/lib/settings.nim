@@ -1,10 +1,10 @@
 import
     percy,
+    std/uri,
     mininim/dic,
     lib/source,
     lib/package,
-    lib/repository,
-    std/uri
+    lib/repository
 
 export
     source,

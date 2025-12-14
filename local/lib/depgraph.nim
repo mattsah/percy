@@ -1,7 +1,7 @@
 import
     percy,
-    lib/repository,
-    semver
+    semver,
+    lib/repository
 
 type
     DepGraph* = ref object of Class

@@ -1,11 +1,10 @@
 import
     mininim,
-    lib/nimble/parser,
-    std/osproc
+    nimble/parser
 
 export
     mininim,
-    osproc
+    parser
 
 const
     name* = "percy"

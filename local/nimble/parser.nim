@@ -4,10 +4,14 @@
 ##
 ## Copyright (C) 2025 Trayambak Rai (xtrayambak at disroot dot org)
 import
-    mininim,
-    lib/nimble/fileinfo
+    std/osproc,
+    std/tables,
+    std/strutils,
+    nimble/fileinfo
+
 
 export
+    osproc,
     fileinfo
 
 func parseFile*(source: string): NimbleFileInfo =

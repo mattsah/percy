@@ -1,5 +1,5 @@
 import
-    mininim
+    std/tables
 
 type NimbleFileInfo* = object
     nimbleFile*: string

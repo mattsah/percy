@@ -1,7 +1,6 @@
 import
-    mininim,
-    mininim/cli,
-    lib/settings
+    percy,
+    mininim/cli
 
 type
     RequireCommand = ref object of Class

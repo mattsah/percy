@@ -1,5 +1,5 @@
 import
-    mininim,
+    percy,
     lib/repository
 
 type

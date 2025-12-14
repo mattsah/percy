@@ -1,5 +1,5 @@
 import
-    mininim,
+    percy,
     mininim/cli
 
 type

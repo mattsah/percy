@@ -22,7 +22,10 @@ proc build(args: seq[string]): void =
     for path in listFiles("./"):
         if path.endsWith(".nim"):
             exec @[
-                "nim -o:bin/" & splitFile(path).name, commandLineParams()[1..^1].join(" "), args.join(" "), "c", path
+                "nim -o:bin/" & splitFile(path).name,
+                commandLineParams()[1..^1].join(" "),
+                args.join(" "),
+                "c " & path
             ].join(" ")
 
 # Tasks
@@ -30,7 +33,7 @@ proc build(args: seq[string]): void =
 task test, "Run testament tests":
     exec "testament --megatest:off --directory:testing " & commandLineParams()[1..^1].join(" ")
 
-task build, "Build the debug version with debug":
+task build, "Build the application (whatever it's called)":
     when defined release:
         build(@["--opt:speed", "--linetrace:on", "--checks:on"])
     elif defined debug:
