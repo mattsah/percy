@@ -17,7 +17,7 @@ Don't worry though, your existing packages are safe with Percy.  In fact, Percy 
 
 ## Basic Usage
 
-You can initialize Percy rather easily.  Simply execute the following in your :
+You can initialize Percy rather easily.  Simply execute the following in your project directory:
 
 ```bash
 percy init
