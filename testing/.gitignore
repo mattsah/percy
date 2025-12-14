@@ -1,0 +1,8 @@
+*
+!assets/
+!assets/**
+!tests/
+!tests/**/
+!tests/**/*.nim
+!tests/**/.gitkeep
+!.gitignore

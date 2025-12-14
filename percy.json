@@ -1,0 +1,10 @@
+{
+  "meta": {},
+  "sources": {
+    "nim-lang": "gh://nim-lang/packages"
+  },
+  "packages": {
+    "mininim_core": "gh://primd-cooperative/mininim-core.git",
+    "mininim_cli": "gh://primd-cooperative/mininim-cli"
+  }
+}
