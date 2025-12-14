@@ -9,7 +9,7 @@ type
 begin InitCommand:
     method execute(console: Console): int {. base .} =
         let
-            fileName = console.getArg("file", "percy.json")
+            fileName = console.getOpt("file", "f")
             settings = Settings.init()
 
         settings.load(fileName)
@@ -24,10 +24,10 @@ shape InitCommand: @[
     Command(
         name: "init",
         description: "Initialize as a percy package",
-        args: @[
-            Arg(
+        opts: @[
+            Opt(
                 name: "file",
-                require: false,
+                default: "percy.json",
                 description: "The settings filename"
             )
         ]

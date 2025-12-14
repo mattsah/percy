@@ -108,11 +108,6 @@ begin Settings:
                 result = name
                 break;
 
-    method getRepository(lookup: string): Repository {. base .} =
-        let
-            uri = parseUri(lookup)
-
-
     method load*(file: string = percy.name & ".json"): void {. base .} =
         var
             node: JsonNode

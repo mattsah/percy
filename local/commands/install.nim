@@ -1,7 +1,8 @@
 import
     percy,
     mininim/cli,
-    lib/settings
+    lib/settings,
+    lib/depgraph
 
 type
     InstallCommand = ref object of Class
@@ -11,11 +12,12 @@ begin InstallCommand:
     method execute(console: Console): int {. base .} =
         let
             nimbleInfo = percy.getNimbleInfo()
+            depgraph = DepGraph.init()
 
         this.settings.prepare()
 
         for requirement in nimbleInfo.requires:
-            echo requirement
+            depgraph.addRequirement(requirement)
 
         discard
 

@@ -9,6 +9,7 @@ type
         RCloneCreated
 
     RUpdateStatus* = enum
+        RUpdateCloned
         RUpdateNone
         RUpdated
 
@@ -77,29 +78,35 @@ begin Repository:
             status: RUpdateStatus
             output: string
             error: int
+        let
+            cacheDir = percy.getAppCacheDir(this.hash)
 
-        percy.execIn(
-            ExecHook as (
-                block:
-                    error = percy.execCmdEx(
-                        output,
-                        @[
-                            "git fetch origin -f --prune",
-                            "'+refs/heads/*:refs/heads/*'",
-                            "'+refs/tags/*:refs/tags/*'"
-                        ]
-                    )
+        if not dirExists(cacheDir):
+            discard this.clone()
+            result = RUpdateCloned
+        else:
+            percy.execIn(
+                ExecHook as (
+                    block:
+                        error = percy.execCmdEx(
+                            output,
+                            @[
+                                "git fetch origin -f --prune",
+                                "'+refs/heads/*:refs/heads/*'",
+                                "'+refs/tags/*:refs/tags/*'"
+                            ]
+                        )
 
-                    if error:
-                        raise newException(ValueError, fmt "failed updating {this.url}")
-                    elif not output.len:
-                        status = RUpdateNone
-                    else:
-                        status = RUpdated
-            ),
-            percy.getAppCacheDir(this.hash)
-        )
-        result = status
+                        if error:
+                            raise newException(ValueError, fmt "failed updating {this.url}")
+                        elif not output.len:
+                            status = RUpdateNone
+                        else:
+                            status = RUpdated
+                ),
+                cacheDir
+            )
+            result = status
 
     method list*(pattern: string, reference: string = "HEAD"): string {. base .} =
         var
