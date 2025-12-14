@@ -55,6 +55,8 @@ begin Repository:
             status: RCloneStatus
             error: int
 
+        echo fmt "Downloading {this.url} into central caching"
+
         percy.execIn(
             ExecHook as (
                 block:

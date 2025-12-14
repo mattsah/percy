@@ -4,7 +4,6 @@ nimble.paths
 nimble.lock
 nimble.develop
 nimbledeps
-atlas.config
 vendor
 deps
 .env
