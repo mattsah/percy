@@ -17,7 +17,7 @@ type
 
     Requirement* = object
         repository: Repository
-        constraint: Constraint
+        cleaned: Constraint
 
     DepGraph* = ref object of Class
         settings: Settings
@@ -56,7 +56,46 @@ begin DepGraph:
         this.nimbleInfo = nimbleInfo
 
     method parseConstraint(constraint: string): Constraint {. base .}=
-        discard
+        let
+            cleaned = constraint.replace(" ", "")
+
+        if cleaned.startsWith("=="):
+            return Constraint(check: ConstraintHook as (
+                result = v == v(cleaned[2..^1])
+            ))
+        elif cleaned.startsWith(">="):
+            return Constraint(check: ConstraintHook as (
+                result = v >= v(cleaned[2..^1])
+            ))
+        elif cleaned.startsWith("<="):
+            return Constraint(check: ConstraintHook as (
+                result = v <= v(cleaned[2..^1])
+            ))
+        elif cleaned.startsWith("<"):
+            return Constraint(check: ConstraintHook as (
+                result = v <= v(cleaned[1..^1])
+            ))
+        elif cleaned.startsWith(">"):
+            return Constraint(check: ConstraintHook as (
+                result = v <= v(cleaned[1..^1])
+            ))
+        else:
+            let
+                now = v(cleaned[1..^1])
+            if cleaned.startsWith("~"):
+                let
+                    next = Version(major: now.major, minor: now.minor + 1, patch: 0)
+                return Constraint(check: ConstraintHook as (
+                    result = v >= now and v < next
+                ))
+            elif cleaned.startsWith("^"):
+                let
+                    next = Version(major: now.major + 1, minor: 0, patch: 0)
+                return Constraint(check: ConstraintHook as (
+                    result = v >= now and v < next
+                ))
+
+        raise newException(ValueError, "Invalid version constraint '{constraint}'")
 
     method parseRequirement(requirement: string): Requirement {. base .} =
         # Something like:
@@ -65,22 +104,22 @@ begin DepGraph:
         #   /path/to/file ^1.5
         #   gh://mattsah/percy ~=1.5
         #
-        # The rules around splitting constraints are probably OK, but longer
+        # The rules around splitting cleaneds are probably OK, but longer
         # term we might need to parse out the package differently if spaces
-        # are not common dividing repository + constraints.  Problem is a
-        # URL can contain a ~ and so can a constraint.
+        # are not common dividing repository + cleaneds.  Problem is a
+        # URL can contain a ~ and so can a cleaned.
         let
             parts = requirement.strip().split(' ', 2)
         var
             package = parts[0].strip()
-            constraint = Constraint(check: ConstraintHook as (
+            cleaned = Constraint(check: ConstraintHook as (
                 block:
                     return true
             ))
 
         if parts.len > 1:
             var
-                anyParts = parts[1].replace(" ", "").split('|')
+                anyParts = parts[1].split('|')
                 anyItems = newSeq[Constraint](anyParts.len)
             for anyConstraint in anyParts:
                 var
@@ -89,11 +128,11 @@ begin DepGraph:
                 for allConstraint in allParts:
                     allItems.add(this.parseConstraint(allConstraint))
                 anyItems.add(AllConstraint.init(allItems))
-            constraint = AnyConstraint.init(anyItems)
+            cleaned = AnyConstraint.init(anyItems)
 
         result = Requirement(
             repository: this.settings.getRepository(package),
-            constraint: constraint
+            cleaned: cleaned
         )
 
     method build*(): void {. base .} =
