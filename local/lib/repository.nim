@@ -1,6 +1,7 @@
 import
     percy,
     std/uri,
+    std/paths,
     checksums/sha1
 
 type
@@ -28,20 +29,25 @@ begin Repository:
     proc qualifyUrl*(url: string): string {. static .} =
         var
             uri = parseUri(url)
-        if uri.scheme notin ["", "https", "http"]:
-            case uri.scheme:
-                of "gh", "github":
-                    uri.path = uri.hostname & uri.path
-                    uri.hostname = "github.com"
-                of "gl", "gitlab":
-                    uri.path = uri.hostname & uri.path
-                    uri.hostname = "github.com"
-                else:
-                    raise newException(ValueError, fmt "invalid scheme {uri.scheme}")
-            uri.scheme = "https"
 
-        if uri.path.endsWith(".git"):
-            uri.path = uri.path[0..^5]
+        if not uri.scheme:
+            if dirExists(uri.path / ".git"):
+                uri.path = $absolutePath(Path uri.path)
+        else:
+            if uri.scheme notin ["http", "https"]:
+                case uri.scheme:
+                    of "gh", "github":
+                        uri.path = uri.hostname & uri.path
+                        uri.hostname = "github.com"
+                    of "gl", "gitlab":
+                        uri.path = uri.hostname & uri.path
+                        uri.hostname = "github.com"
+                    else:
+                        raise newException(ValueError, fmt "invalid scheme {uri.scheme}")
+                uri.scheme = "https"
+
+            if uri.path.endsWith(".git"):
+                uri.path = uri.path[0..^5]
 
         result = $uri
 

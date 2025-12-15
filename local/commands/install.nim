@@ -9,6 +9,10 @@ begin InstallCommand:
     method execute(console: Console): int =
         result = super.execute(console)
 
+        # Build the dep graph and resolve
+        # for each resolved hash
+        # git worktree add -d <location> <hash>
+
         this.settings.prepare()
 
 shape InstallCommand: @[

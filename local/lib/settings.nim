@@ -1,6 +1,7 @@
 import
     percy,
     mininim/dic,
+    std/uri,
     lib/source,
     lib/package,
     lib/repository
@@ -99,11 +100,17 @@ begin Settings:
             )
 
     method getName*(url: string): string {. base .} =
-        result = ""
+        result = parseUri(url).path.strip("/")
         for name, value in this.index:
             if url == value:
                 result = name
                 break;
+
+    method getRepository*(reference: string): Repository {. base .} =
+        if this.index.hasKey(reference):
+            result = Repository.init(this.index[reference])
+        else:
+            result = Repository.init(reference)
 
     method load*(config: string = percy.name & ".json"): void {. base .} =
         var
