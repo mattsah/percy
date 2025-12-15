@@ -11,9 +11,6 @@ begin InstallCommand:
 
         this.settings.prepare()
 
-#        for requirement in nimbleInfo.requires:
-#            depgraph.addRequirement(requirement)
-
 shape InstallCommand: @[
     Command(
         name: "install",

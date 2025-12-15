@@ -16,11 +16,14 @@ type
     Repository* = ref object of Class
         url: string
         hash: string
-        ogUrl: string
+        origin: string
 
 begin Repository:
+    proc `$`*(): string =
+        result = this.hash
+
     proc `%`*(): JsonNode =
-        result = newJString(this.ogUrl)
+        result = newJString(this.hash)
 
     proc qualifyUrl*(url: string): string {. static .} =
         var
@@ -47,8 +50,8 @@ begin Repository:
 
     method init*(url: string): void {. base .} =
         this.url = self.qualifyUrl(url)
-        this.hash = $secureHash(this.url)
-        this.ogUrl = url
+        this.hash = toLower($secureHash(toLower(this.url)))
+        this.origin = url
 
     method clone*(): RCloneStatus {. base .} =
         var
@@ -161,6 +164,9 @@ begin Repository:
             ),
             percy.getAppCacheDir(this.hash)
         )
+
+    method origin*(): string {. base .} =
+        result = this.origin
 
     method url*(): string {. base .} =
         result = this.url

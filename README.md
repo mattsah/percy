@@ -73,36 +73,34 @@ percy install
 That will look something like the following:
 
 ```bash
-[11:58] [master]!? matt@naimey:percy$ bin/percy install
+$ bin/percy install
 Downloading https://github.com/nim-lang/packages into central caching
-Cloning into bare repository '58CDF17AAB6671C59764F4A3FF6A0AF7761348FA'...
+Cloning into bare repository '58cdf17aab6671c59764f4a3ff6a0af7761348fa'...
 remote: Enumerating objects: 9906, done.
-remote: Counting objects: 100% (189/189), done.
-remote: Compressing objects: 100% (44/44), done.
-remote: Total 9906 (delta 176), reused 145 (delta 145), pack-reused 9717 (from 2)
-Receiving objects: 100% (9906/9906), 4.02 MiB | 15.81 MiB/s, done.
-Resolving deltas: 100% (5915/5915), done.
+remote: Counting objects: 100% (115/115), done.
+remote: Compressing objects: 100% (42/42), done.
+remote: Total 9906 (delta 102), reused 73 (delta 73), pack-reused 9791 (from 3)
+Receiving objects: 100% (9906/9906), 4.38 MiB | 14.18 MiB/s, done.
+Resolving deltas: 100% (5903/5903), done.
 Downloading https://github.com/primd-cooperative/mininim-core into central caching
-Cloning into bare repository 'DFFAA9EEB5D21824761EC5397BC9D12298BA390A'...
-remote: Enumerating objects: 17, done.
-remote: Counting objects: 100% (15/15), done.
-remote: Compressing objects: 100% (12/12), done.
-remote: Total 17 (delta 2), reused 15 (delta 2), pack-reused 2 (from 1)
-Receiving objects: 100% (17/17), 16.49 KiB | 703.00 KiB/s, done.
-Resolving deltas: 100% (2/2), done.
+Cloning into bare repository 'dffaa9eeb5d21824761ec5397bc9d12298ba390a'...
+remote: Enumerating objects: 29, done.
+remote: Counting objects: 100% (27/27), done.
+remote: Compressing objects: 100% (18/18), done.
+remote: Total 29 (delta 9), reused 26 (delta 8), pack-reused 2 (from 1)
+Receiving objects: 100% (29/29), 17.89 KiB | 678.00 KiB/s, done.
+Resolving deltas: 100% (9/9), done.
 Downloading https://github.com/primd-cooperative/mininim-cli into central caching
-Cloning into bare repository '9533C07D6844B33BCF591287DED1F4F0E58AB290'...
-remote: Enumerating objects: 25, done.
-remote: Counting objects: 100% (14/14), done.
-remote: Compressing objects: 100% (8/8), done.
-remote: Total 25 (delta 5), reused 10 (delta 4), pack-reused 11 (from 1)
-Receiving objects: 100% (25/25), 4.16 KiB | 4.16 MiB/s, done.
-Resolving deltas: 100% (7/7), done.
+Cloning into bare repository '9533c07d6844b33bcf591287ded1f4f0e58ab290'...
+remote: Enumerating objects: 30, done.
+remote: Counting objects: 100% (19/19), done.
+remote: Compressing objects: 100% (10/10), done.
+remote: Total 30 (delta 7.
 ```
 
 You may have noticed in the above that the repository is also being downloaded into the cache.  Indeed, both your source and your packages are dependencies.
 
-When the installation is complete, you should have a new `vendor` directory with an `index.json` file in it.  This file contains a list of all the available packages mapped to their URLs based on your sources and package overloads.
+When the installation is complete, you should have a new `vendor` directory with an `index.percy.json` file in it.  This file contains a list of all the available packages mapped to their URLs based on your sources and package overloads.
 
 > NOTE: Actual dependency resolution is not complete yet, what follows is what **will** happen.
 
@@ -112,7 +110,7 @@ Based on your project's `.nimble` file and all the other `.nimble` files for its
 vendor
 ├── mininim-cli
 ├── mininim-core
-└── index.json
+└── index.percy.json
 ```
 
 This will also update your `nim.cfg` file with something similar to what other package manager do:
@@ -147,7 +145,7 @@ vendor
 │  └── semver.nim
 ├── foobar
 │  └── amazing-nim
-└── index.json
+└── index.percy.json
 ```
 
 And your `nim.cfg` might look something like the following:
@@ -172,7 +170,7 @@ Would result in:
 vendor
 ├── mininim
 │  └── core
-└── index.json
+└── index.percy.json
 ```
 
 _In short_, your package names are no longer tied to committed configs and code.  The only real restrictions are characters reserved for indicating versions, such as: `#`,  `>`,  `<`, `~`, `^`, and `=`.
@@ -202,7 +200,7 @@ vendor
 ├── neo
 ├── xTrayambak
 │  └── neo
-└── index.json
+└── index.percy.json
 ```
 
 Of course, this _cannot_ and will not prevent actual potential module name conflicts.  That is to say, both search paths will be included in the your `nim.cfg`, so if each of them has a `neo.nim` file at the root of their source path and you `import neo` you may still be up shit's creek.
