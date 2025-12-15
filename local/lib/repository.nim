@@ -1,7 +1,9 @@
 import
     percy,
+    semver,
     std/uri,
     std/paths,
+    std/hashes,
     checksums/sha1
 
 type
@@ -14,10 +16,18 @@ type
         RUpdateNone
         RUpdated
 
+    Commit* = ref object of Class
+        id*: string
+        version*: Version
+
     Repository* = ref object of Class
         url: string
         hash: string
         origin: string
+
+begin Commit:
+    proc hash*(): Hash =
+        result = hash(this.id)
 
 begin Repository:
     proc `$`*(): string =
@@ -25,6 +35,9 @@ begin Repository:
 
     proc `%`*(): JsonNode =
         result = newJString(this.hash)
+
+    proc hash*(): Hash =
+        result = hash(this.hash)
 
     proc qualifyUrl*(url: string): string {. static .} =
         var
@@ -59,6 +72,15 @@ begin Repository:
         this.hash = toLower($secureHash(toLower(this.url)))
         this.origin = url
 
+    method cacheDir*(): string {. base .} =
+        result = percy.getAppCacheDir(this.hash)
+
+    method origin*(): string {. base .} =
+        result = this.origin
+
+    method url*(): string {. base .} =
+        result = this.url
+
     method clone*(): RCloneStatus {. base .} =
         var
             status: RCloneStatus
@@ -89,10 +111,7 @@ begin Repository:
             status: RUpdateStatus
             output: string
             error: int
-        let
-            cacheDir = percy.getAppCacheDir(this.hash)
-
-        if not dirExists(cacheDir):
+        if not dirExists(this.cacheDir):
             discard this.clone()
             result = RUpdateCloned
         else:
@@ -116,7 +135,7 @@ begin Repository:
                             echo fmt "Fetched new references from {this.url}"
                             status = RUpdated
                 ),
-                cacheDir
+                this.cacheDir
             )
             result = status
 
@@ -134,7 +153,7 @@ begin Repository:
                         ]
                     )
             ),
-            percy.getAppCacheDir(this.hash)
+            this.cacheDir
         )
 
         if not error:
@@ -149,14 +168,13 @@ begin Repository:
             error: int
         let
             file = this.list(pattern, reference)
-
         if file.len:
             percy.execIn(
                 ExecHook as (
                     block:
                         (output, error) = execCmdEx(fmt "git show {file}")
                 ),
-                percy.getAppCacheDir(this.hash)
+                this.cacheDir
             )
 
             if not error:
@@ -168,11 +186,31 @@ begin Repository:
                 block:
                     callback(this)
             ),
-            percy.getAppCacheDir(this.hash)
+            this.cacheDir
         )
 
-    method origin*(): string {. base .} =
-        result = this.origin
+    method tags*(): seq[Commit] {. base .} =
+        var
+            output: string
+            error: int
 
-    method url*(): string {. base .} =
-        result = this.url
+        discard this.update()
+
+        percy.execIn(
+            ExecHook as (
+                block:
+                    error = percy.execCmdEx(output, @[
+                        "git for-each-ref --format='%(refname:short) %(objectname)' 'refs/tags/?*[0-9]*.*'"
+                    ])
+
+                    if error:
+                        raise newException(ValueError, fmt "failed getting tags for {this.url}")
+            ),
+            this.cacheDir
+        )
+
+        for tag in output.split('\n'):
+            let
+                parts = tag.split(' ', 1)
+            if parts.len == 2:
+                result.add(Commit(id: parts[1], version: v(parts[0])))

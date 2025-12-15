@@ -16,8 +16,8 @@ type
         settings*: Settings
 
     BaseGraphCommand* = ref object of BaseCommand
-        depGraph*: DepGraph
         nimbleInfo*: NimbleFileInfo
+        solver*: Solver
 
 let
     CommandFileOpt* = Opt(
@@ -39,4 +39,14 @@ begin BaseGraphCommand:
         result = super.execute(console)
 
         this.nimbleInfo = percy.getNimbleInfo()
-        this.depGraph = DepGraph.init(this.settings, this.nimbleInfo)
+        this.solver = Solver.init()
+
+    method getGraph*(): DepGraph {. base .} =
+        result =  DepGraph.init(this.settings)
+
+        for requirement in this.nimbleInfo.requires:
+            result.addRequirement(
+                Commit(),
+                Repository.init(getCurrentDir()),
+                result.parseRequirement(requirement)
+            )

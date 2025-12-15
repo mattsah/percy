@@ -1,12 +1,14 @@
 import
     percy,
     semver,
-    algorithm,
     lib/settings,
     lib/repository
 
+export
+    semver
+
 type
-    ConstraintHook* {. inheritable .} = proc(v: Version): bool
+    ConstraintHook* = proc(v: Version): bool
 
     Constraint* = ref object of Class
         check: ConstraintHook
@@ -17,12 +19,17 @@ type
 
     Requirement* = object
         repository: Repository
-        cleaned: Constraint
+        constraint: Constraint
 
     DepGraph* = ref object of Class
+        repositories: Table[Repository, seq[Commit]]
+        requirements: Table[(Repository, Commit), seq[Requirement]]
+        conflicts: Table[(Repository, Commit), HashSet[string]]
+        settings: Settings
+
+    Solver* = ref object of Class
         settings: Settings
         nimbleInfo: NimbleFileInfo
-        packages: Table[string, seq[Version]]
 
 begin Constraint:
     discard
@@ -51,11 +58,12 @@ begin AnyConstraint:
         )
 
 begin DepGraph:
-    method init*(settings: Settings, nimbleInfo: NimbleFileInfo): void {. base .} =
-        this.settings = settings
-        this.nimbleInfo = nimbleInfo
+    method addRequirement*(commit: Commit, repository: Repository, requirement: Requirement): void {. base .}
 
-    method parseConstraint(constraint: string): Constraint {. base .}=
+    method init*(settings: Settings): void {. base .} =
+        this.settings = settings
+
+    method parseConstraint*(constraint: string, repository: Repository): Constraint {. base .}=
         let
             cleaned = constraint.replace(" ", "")
 
@@ -73,11 +81,11 @@ begin DepGraph:
             ))
         elif cleaned.startsWith("<"):
             return Constraint(check: ConstraintHook as (
-                result = v <= v(cleaned[1..^1])
+                result = v < v(cleaned[1..^1])
             ))
         elif cleaned.startsWith(">"):
             return Constraint(check: ConstraintHook as (
-                result = v <= v(cleaned[1..^1])
+                result = v > v(cleaned[1..^1])
             ))
         else:
             let
@@ -94,10 +102,18 @@ begin DepGraph:
                 return Constraint(check: ConstraintHook as (
                     result = v >= now and v < next
                 ))
+            elif cleaned.startsWith("#"):
+                return Constraint(check: ConstraintHook as (
+                    block:
+                        result = true
+                        # get the hash to match the version from the repository
+                        # and check whether or not that hash is in the history of
+                        # the corresponding branch/reference
+                ))
 
         raise newException(ValueError, "Invalid version constraint '{constraint}'")
 
-    method parseRequirement(requirement: string): Requirement {. base .} =
+    method parseRequirement*(requirement: string): Requirement {. base .} =
         # Something like:
         #   semver >=1.2.3|#head
         #   mininim-core >=2.1,<=2.5|>=2.8
@@ -109,9 +125,9 @@ begin DepGraph:
         # are not common dividing repository + cleaneds.  Problem is a
         # URL can contain a ~ and so can a cleaned.
         let
-            parts = requirement.strip().split(' ', 2)
+            parts = requirement.strip().split(' ', 1)
         var
-            package = parts[0].strip()
+            repository = this.settings.getRepository(parts[0].strip())
             cleaned = Constraint(check: ConstraintHook as (
                 block:
                     return true
@@ -121,24 +137,45 @@ begin DepGraph:
             var
                 anyParts = parts[1].split('|')
                 anyItems = newSeq[Constraint](anyParts.len)
-            for anyConstraint in anyParts:
+
+            for i, anyConstraint in anyParts:
                 var
                     allParts = anyConstraint.split(',')
                     allItems = newSeq[Constraint](allParts.len)
-                for allConstraint in allParts:
-                    allItems.add(this.parseConstraint(allConstraint))
-                anyItems.add(AllConstraint.init(allItems))
+                for j, allConstraint in allParts:
+                    allItems[j] = this.parseConstraint(allConstraint, repository)
+                anyItems[i] = AllConstraint.init(allItems)
+
             cleaned = AnyConstraint.init(anyItems)
 
         result = Requirement(
-            repository: this.settings.getRepository(package),
-            cleaned: cleaned
+            repository: repository,
+            constraint: cleaned
         )
 
-    method build*(): void {. base .} =
-        #        for requirement in nimbleInfo.requires:
-        #            depgraph.addRequirement(requirement)
-        discard
+    method resolve*(commit: Commit, repository: Repository): void {. base .} =
+        let
+            nimbleInfo = parser.parseFile(repository.read("*.nimble", commit.id))
+        for requirement in nimbleInfo.requires:
+            this.addRequirement(commit, repository, this.parseRequirement(requirement))
 
-    method addRequirement*(requirement: string): void {. base .} =
-        discard
+    method addRepository*(repository: Repository): void {. base .} =
+        if not this.repositories.hasKey(repository):
+            this.repositories[repository] = repository.tags
+
+    method addRequirement*(commit: Commit, repository: Repository, requirement: Requirement): void {. base .} =
+        let
+            key = (repository, commit)
+
+        if not this.requirements.hasKey(key):
+            this.requirements[key] = newSeq[Requirement]()
+
+        this.requirements[key].add(requirement)
+        this.addRepository(requirement.repository)
+
+        for commit in this.repositories[requirement.repository]:
+            if requirement.constraint.check(commit.version):
+                this.resolve(commit, requirement.repository)
+
+begin Solver:
+    discard

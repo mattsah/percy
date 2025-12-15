@@ -9,6 +9,9 @@ begin InstallCommand:
     method execute(console: Console): int =
         result = super.execute(console)
 
+        let
+            graph {. used .} = this.getGraph()
+
         # Build the dep graph and resolve
         # for each resolved hash
         # git worktree add -d <location> <hash>
