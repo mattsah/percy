@@ -1,24 +1,24 @@
 import
     percy,
-    mininim/cli
+    basecli
 
 type
-    RequireCommand = ref object of Class
+    RequireCommand = ref object of BaseGraphCommand
 
 begin RequireCommand:
-    method execute(console: Console): int {. base .} =
-        discard
+    method execute(console: Console): int =
+        result = super.execute(console)
+
+        this.settings.prepare()
+        # Add requirement to the .nimble file
+        # re-run dependency graph
 
 shape RequireCommand: @[
     Command(
         name: "require",
         description: "Add a requirement to the project",
-        args: @[
-            Arg(
-                name: "file",
-                require: false,
-                description: "The settings filename"
-            )
+        opts: @[
+            CommandFileOpt
         ]
     )
 ]

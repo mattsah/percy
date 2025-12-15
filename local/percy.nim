@@ -9,10 +9,13 @@ export
 const
     name* = "percy"
     target* = "vendor"
-    index* = "index.json"
 
 type
     ExecHook* = proc(): void
+
+#[
+    General Utilities (should always be used with percy.* prefix)
+]#
 
 proc getNimbleInfo*(): NimbleFileInfo =
     for file in walkFiles("*.nimble"):

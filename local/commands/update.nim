@@ -1,17 +1,20 @@
 import
     percy,
-    mininim/cli
+    basecli
 
 type
-    UpdateCommand = ref object of Class
+    UpdateCommand = ref object of BaseGraphCommand
 
 begin UpdateCommand:
-    method execute(console: Console): int {. base .} =
-        discard
+    method execute(console: Console): int =
+        result = super.execute(console)
 
 shape UpdateCommand: @[
     Command(
         name: "update",
-        description: "Update package(s) and corresponding version constraints"
+        description: "Update package(s) and corresponding version constraints",
+        opts: @[
+            CommandFileOpt
+        ]
     )
 ]

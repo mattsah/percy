@@ -1,6 +1,5 @@
 import
     percy,
-    std/uri,
     mininim/dic,
     lib/source,
     lib/package,
@@ -20,6 +19,7 @@ type
     Settings* = ref object of Class
         data* = SettingsData()
         index*: OrderedTable[string, string]
+        config*: string
 
 begin Settings:
     method validatePackages(node: JsonNode): void {. base .} =
@@ -105,23 +105,28 @@ begin Settings:
                 result = name
                 break;
 
-    method load*(file: string = percy.name & ".json"): void {. base .} =
+    method load*(config: string = percy.name & ".json"): void {. base .} =
         var
             node: JsonNode
         let
-            index = percy.target / percy.index
-        if fileExists(file):
-            node = parseJson(readFile(file))
+            index = percy.target / "index." & config
+
+        this.config = config
+
+        if fileExists(this.config):
+            node = parseJson(readFile(this.config))
 
             this.validate(node)
-        else:
-            this.data.sources["nim-lang"] = Source.init("gh://nim-lang/packages")
 
         if fileExists(index):
             this.index = parseJson(readFile(index)).to(OrderedTable[string, string])
 
-    method save*(file: string = percy.name & ".json"): void {. base .} =
-        writeFile(file, pretty(%this.data))
+    method open*(config: string = percy.name & ".json"): Settings {. base .} =
+        this.load(config)
+        result = this
+
+    method save*(): void {. base .} =
+        writeFile(this.config, pretty(%this.data))
 
     method index*(): void {. base .} =
         var
@@ -175,7 +180,7 @@ begin Settings:
 
         this.index = pairs.reversed().toOrderedTable()
 
-        writeFile(percy.target / percy.index, $(%(this.index)))
+        writeFile(percy.target / "index." & this.config, $(%(this.index)))
 
 
     method prepare*(): void {. base .} =
@@ -195,7 +200,7 @@ begin Settings:
                             updated = true
                         else:
                             discard
-        if updated or not fileExists(percy.target / percy.index):
+        if updated or not fileExists(percy.target / "index." & this.config):
             this.index()
 
         for name, package in this.data.packages:
@@ -207,8 +212,6 @@ shape Settings: @[
         call: DelegateHook as (
             block:
                 result = shape.init()
-
-                result.load()
 
                 let
                     cacheDir = percy.getAppCacheDir()

@@ -1,37 +1,25 @@
 import
     percy,
-    mininim/cli,
-    lib/settings,
-    lib/depgraph
+    basecli
 
 type
-    InstallCommand = ref object of Class
-        settings: Settings
+    InstallCommand = ref object of BaseGraphCommand
 
 begin InstallCommand:
-    method execute(console: Console): int {. base .} =
-        let
-            nimbleInfo = percy.getNimbleInfo()
-            depgraph = DepGraph.init()
+    method execute(console: Console): int =
+        result = super.execute(console)
 
         this.settings.prepare()
 
-        for requirement in nimbleInfo.requires:
-            depgraph.addRequirement(requirement)
-
-        discard
+#        for requirement in nimbleInfo.requires:
+#            depgraph.addRequirement(requirement)
 
 shape InstallCommand: @[
-    Delegate(
-        call: DelegateHook as (
-            block:
-                result = shape.init()
-
-                result.settings = this.app.get(Settings)
-        )
-    ),
     Command(
         name: "install",
-        description: "Install all dependencies (use lock file if exists)"
+        description: "Install all dependencies (use lock file if exists)",
+        opts: @[
+            CommandFileOpt
+        ]
     )
 ]

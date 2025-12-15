@@ -1,34 +1,41 @@
 import
     percy,
-    mininim/cli,
-    lib/settings
+    basecli
 
 type
-    InitCommand = ref object of Class
+    InitCommand = ref object of BaseCommand
 
 begin InitCommand:
-    method execute(console: Console): int {. base .} =
+    method execute(console: Console): int =
+        result = super.execute(console)
+
         let
-            fileName = console.getOpt("file", "f")
-            settings = Settings.init()
+            reset = console.getOpt("reset", "r")
 
-        settings.load(fileName)
+        if fileExists(this.file) and reset of false:
+            stdout.write fmt "Percy is already initialized in {this.file}."
+            stdout.write fmt " You can use set/unset commands to modify it"
+            stdout.write '\n'
 
-        #
-        # Ask Questions
-        #
+            result = -1
+        else:
+            this.settings.data.sources.clear()
+            this.settings.data.packages.clear()
+            this.settings.data.sources["nim-lang"] = Source.init("gh://nim-lang/packages")
+            this.settings.data.meta = newJObject()
 
-        settings.save(fileName)
+            this.settings.save()
 
 shape InitCommand: @[
     Command(
         name: "init",
         description: "Initialize as a percy package",
         opts: @[
+            CommandFileOpt,
             Opt(
-                name: "file",
-                default: "percy.json",
-                description: "The settings filename"
+                flag: "r",
+                name: "reset",
+                description: "Force re-initialization (resetting sources/packages)"
             )
         ]
     )

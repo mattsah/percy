@@ -55,12 +55,12 @@ begin Repository:
             status: RCloneStatus
             error: int
 
-        echo fmt "Downloading {this.url} into central caching"
-
         percy.execIn(
             ExecHook as (
                 block:
                     if not dirExists(this.hash):
+                        echo fmt "Downloading {this.url} into central caching"
+
                         error = percy.execCmd(@["git clone --bare", this.url, this.hash])
 
                         if error:
@@ -104,6 +104,7 @@ begin Repository:
                         elif not output.len:
                             status = RUpdateNone
                         else:
+                            echo fmt "Fetched new references from {this.url}"
                             status = RUpdated
                 ),
                 cacheDir
@@ -161,5 +162,5 @@ begin Repository:
             percy.getAppCacheDir(this.hash)
         )
 
-    method url*(): string =
+    method url*(): string {. base .} =
         result = this.url

@@ -1,43 +1,38 @@
 import
     percy,
-    mininim/cli,
-    lib/settings
+    basecli
 
 type
-    UnsetCommand = ref object of Class
+    UnsetCommand = ref object of BaseGraphCommand
 
 begin UnsetCommand:
-    method execute(console: Console): int {. base .} =
+    method execute(console: Console): int =
+        result = super.execute(console)
+
         let
             setType = console.getArg("type")
             setAlias = console.getArg("alias")
-            fileName = console.getOpt("file", "f")
-            settings = Settings.init()
-
-        settings.load(fileName)
 
         # validate alias
         # validate url
 
         case setType:
             of "source":
-                settings.data.sources.del(setAlias)
+                this.settings.data.sources.del(setAlias)
             of "package":
-                settings.data.packages.del(setAlias)
+                this.settings.data.packages.del(setAlias)
 
-        settings.save(fileName)
+        this.settings.prepare()
+        # Check if dependency graph still works with these settings
+        # warn if not that packages should be removed or fixed up
+        this.settings.save()
 
 shape UnsetCommand: @[
     Command(
         name: "unset",
-        description: "Set a source or package URL",
+        description: "Unset a source or package URL",
         opts: @[
-            Opt(
-                name: "file",
-                flag: "f",
-                default: "percy.json",
-                description: "The settings filename"
-            )
+            CommandFileOpt
         ],
         args: @[
             Arg(
