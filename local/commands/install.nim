@@ -9,6 +9,8 @@ begin InstallCommand:
     method execute(console: Console): int =
         result = super.execute(console)
 
+        this.settings.prepare()
+
         let
             graph {. used .} = this.getGraph()
 
@@ -16,7 +18,6 @@ begin InstallCommand:
         # for each resolved hash
         # git worktree add -d <location> <hash>
 
-        this.settings.prepare()
 
 shape InstallCommand: @[
     Command(

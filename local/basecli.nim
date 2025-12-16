@@ -42,11 +42,13 @@ begin BaseGraphCommand:
         this.solver = Solver.init()
 
     method getGraph*(): DepGraph {. base .} =
-        result =  DepGraph.init(this.settings)
+        result =  DepGraph.init(this.settings, false)
+
+        let
+            repository = this.settings.getRepository(getCurrentDir())
 
         for requirement in this.nimbleInfo.requires:
             result.addRequirement(
-                Commit(),
-                Repository.init(getCurrentDir()),
+                Commit(repository: repository),
                 result.parseRequirement(requirement)
             )

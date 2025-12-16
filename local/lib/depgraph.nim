@@ -18,13 +18,15 @@ type
     AnyConstraint* = ref object of Constraint
 
     Requirement* = object
+        original: string
         repository: Repository
         constraint: Constraint
 
     DepGraph* = ref object of Class
-        repositories: Table[Repository, seq[Commit]]
-        requirements: Table[(Repository, Commit), seq[Requirement]]
-        conflicts: Table[(Repository, Commit), HashSet[string]]
+        quiet: bool
+        commits: Table[Repository, seq[Commit]]
+        excludes: Table[Repository, seq[Commit]]
+        requirements: Table[Commit, seq[Requirement]]
         settings: Settings
 
     Solver* = ref object of Class
@@ -40,9 +42,8 @@ begin AllConstraint:
             block:
                 result = true
                 for i in items:
-                    if not i.check(v):
-                        result = false
-                discard
+                    if i.check(v) == false:
+                        return false
         )
 
 begin AnyConstraint:
@@ -51,16 +52,15 @@ begin AnyConstraint:
             block:
                 result = false
                 for i in items:
-                    if i.check(v):
-                        result = true
-                        break
-                discard
+                    if i.check(v) == true:
+                        return true
         )
 
 begin DepGraph:
-    method addRequirement*(commit: Commit, repository: Repository, requirement: Requirement): void {. base .}
+    method addRequirement*(commit: Commit, requirement: Requirement): void {. base .}
 
-    method init*(settings: Settings): void {. base .} =
+    method init*(settings: Settings, quiet: bool = true): void {. base .} =
+        this.quiet    = quiet
         this.settings = settings
 
     method parseConstraint*(constraint: string, repository: Repository): Constraint {. base .}=
@@ -113,6 +113,9 @@ begin DepGraph:
 
         raise newException(ValueError, "Invalid version constraint '{constraint}'")
 
+    #[
+    ##
+    ]#
     method parseRequirement*(requirement: string): Requirement {. base .} =
         # Something like:
         #   semver >=1.2.3|#head
@@ -128,7 +131,7 @@ begin DepGraph:
             parts = requirement.strip().split(' ', 1)
         var
             repository = this.settings.getRepository(parts[0].strip())
-            cleaned = Constraint(check: ConstraintHook as (
+            constraint = Constraint(check: ConstraintHook as (
                 block:
                     return true
             ))
@@ -146,36 +149,88 @@ begin DepGraph:
                     allItems[j] = this.parseConstraint(allConstraint, repository)
                 anyItems[i] = AllConstraint.init(allItems)
 
-            cleaned = AnyConstraint.init(anyItems)
+            constraint = AnyConstraint.init(anyItems)
 
         result = Requirement(
+            original: requirement,
             repository: repository,
-            constraint: cleaned
+            constraint: constraint
         )
 
-    method resolve*(commit: Commit, repository: Repository): void {. base .} =
-        let
-            nimbleInfo = parser.parseFile(repository.read("*.nimble", commit.id))
-        for requirement in nimbleInfo.requires:
-            this.addRequirement(commit, repository, this.parseRequirement(requirement))
+    #[
+    ##
+    ]#
+    method resolve*(tag: Commit, repository: Repository): void {. base .} =
+        var
+            usable = true
+            nimbleInfo: NimbleFileInfo
 
+        block checkUsability:
+            for _, requirements in this.requirements:
+                for requirement in requirements:
+                    if tag.repository.hash == requirement.repository.hash:
+                        usable = false
+                        if requirement.constraint.check(tag.version):
+                            usable = true
+                            break checkUsability
+        if usable:
+            if not this.quiet:
+                echo fmt "Graph: Resolving Nimble File"
+                echo fmt "  Source: {repository.url} @ {tag.version}"
+
+            for file in repository.list("/", tag.id):
+                if file.endsWith(".nimble"):
+                    when debugging(2):
+                        echo repository.read(file, commit.id)
+                    nimbleInfo = parser.parseFile(repository.read(file, tag.id))
+                    for requirement in nimbleInfo.requires:
+                        this.addRequirement(tag, this.parseRequirement(requirement))
+                    break
+        else:
+            if not this.quiet:
+                echo fmt "Graph: Excluding Commit (Not a Usable Version)"
+                echo fmt "  Repository: {tag.repository.url}"
+                echo fmt "  Version: {tag.version}"
+
+            this.excludes[tag.repository].add(tag)
+
+    #[
+    ##
+    ]#
     method addRepository*(repository: Repository): void {. base .} =
-        if not this.repositories.hasKey(repository):
-            this.repositories[repository] = repository.tags
+        if not this.commits.hasKey(repository):
+            if not this.quiet:
+                echo fmt "Graph: Adding Repository (Scanning Available Tags)"
+                echo fmt "  Repository: {repository.url}"
 
-    method addRequirement*(commit: Commit, repository: Repository, requirement: Requirement): void {. base .} =
-        let
-            key = (repository, commit)
+            this.commits[repository] = repository.tags
 
-        if not this.requirements.hasKey(key):
-            this.requirements[key] = newSeq[Requirement]()
+        if not this.excludes.hasKey(repository):
+            this.excludes[repository] = newSeq[Commit]()
 
-        this.requirements[key].add(requirement)
+    #[
+    ##
+    ]#
+    method addRequirement*(commit: Commit, requirement: Requirement): void {. base .} =
+        if not this.quiet:
+            echo fmt "Graph: Adding Requirement"
+            echo fmt "  Dependent: {commit.repository.url} @ {commit.version}"
+            echo fmt "  Dependends On: {requirement.repository.url} @ {requirement.original}"
+
+        if not this.requirements.hasKey(commit):
+            this.requirements[commit] = newSeq[Requirement]()
+
         this.addRepository(requirement.repository)
 
-        for commit in this.repositories[requirement.repository]:
-            if requirement.constraint.check(commit.version):
-                this.resolve(commit, requirement.repository)
+        for tag in this.commits[requirement.repository]:
+            if this.excludes[tag.repository].contains(tag):
+                continue
+            if not requirement.constraint.check(tag.version):
+                continue
+
+            this.resolve(tag, requirement.repository)
+
+        this.requirements[commit].add(requirement)
 
 begin Solver:
     discard

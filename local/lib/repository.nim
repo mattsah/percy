@@ -1,6 +1,7 @@
 import
     percy,
     semver,
+    std/re,
     std/uri,
     std/paths,
     std/hashes,
@@ -16,14 +17,15 @@ type
         RUpdateNone
         RUpdated
 
+    Repository* = ref object of Class
+        url: string
+        sha1: string
+        origin: string
+
     Commit* = ref object of Class
         id*: string
         version*: Version
-
-    Repository* = ref object of Class
-        url: string
-        hash: string
-        origin: string
+        repository*: Repository
 
 begin Commit:
     proc hash*(): Hash =
@@ -31,13 +33,13 @@ begin Commit:
 
 begin Repository:
     proc `$`*(): string =
-        result = this.hash
+        result = this.sha1
 
     proc `%`*(): JsonNode =
-        result = newJString(this.hash)
+        result = newJString(this.sha1)
 
     proc hash*(): Hash =
-        result = hash(this.hash)
+        result = hash(this.sha1)
 
     proc qualifyUrl*(url: string): string {. static .} =
         var
@@ -69,17 +71,20 @@ begin Repository:
 
     method init*(url: string): void {. base .} =
         this.url = self.qualifyUrl(url)
-        this.hash = toLower($secureHash(toLower(this.url)))
+        this.sha1 = toLower($secureHash(toLower(this.url)))
         this.origin = url
 
-    method cacheDir*(): string {. base .} =
-        result = percy.getAppCacheDir(this.hash)
+    method url*(): string {. base .} =
+        result = this.url
+
+    method sha1*(): string {. base .} =
+        result = this.sha1
 
     method origin*(): string {. base .} =
         result = this.origin
 
-    method url*(): string {. base .} =
-        result = this.url
+    method cacheDir*(): string {. base .} =
+        result = percy.getAppCacheDir(this.sha1)
 
     method clone*(): RCloneStatus {. base .} =
         var
@@ -89,10 +94,10 @@ begin Repository:
         percy.execIn(
             ExecHook as (
                 block:
-                    if not dirExists(this.hash):
+                    if not dirExists(this.sha1):
                         echo fmt "Downloading {this.url} into central caching"
 
-                        error = percy.execCmd(@["git clone --bare", this.url, this.hash])
+                        error = percy.execCmd(@["git clone --bare", this.url, this.sha1])
 
                         if error:
                             raise newException(ValueError, fmt "failed cloning {this.url}")
@@ -139,7 +144,7 @@ begin Repository:
             )
             result = status
 
-    method list*(pattern: string, reference: string = "HEAD"): string {. base .} =
+    method list*(path: string, reference: string = "HEAD"): seq[string] {. base .} =
         var
             output: string
             error: int
@@ -149,7 +154,7 @@ begin Repository:
                     error = percy.execCmdEx(
                         output,
                         @[
-                            fmt "git grep -l '' {reference} -- '{pattern}'"
+                            fmt "git ls-tree --name-only {reference} --name-only :{path}"
                         ]
                     )
             ),
@@ -157,28 +162,24 @@ begin Repository:
         )
 
         if not error:
-            let
-                lines = output.split('\n')
-            if lines.len > 0:
-                result = lines[0]
+            result = output.strip().split('\n')
 
-    method read*(pattern: string, reference: string = "HEAD"): string {. base .} =
+    method read*(path: string, reference: string = "HEAD"): string {. base .} =
+        let
+            file = reference & ":" & path.strip("/")
         var
             output: string
             error: int
-        let
-            file = this.list(pattern, reference)
-        if file.len:
-            percy.execIn(
-                ExecHook as (
-                    block:
-                        (output, error) = execCmdEx(fmt "git show {file}")
-                ),
-                this.cacheDir
-            )
+        percy.execIn(
+            ExecHook as (
+                block:
+                    (output, error) = execCmdEx(fmt "git show {file}")
+            ),
+            this.cacheDir
+        )
 
-            if not error:
-                result = output
+        if not error:
+            result = output
 
     method exec(callback: proc(repository: self): void): void {. base .} =
         percy.execIn(
@@ -190,6 +191,9 @@ begin Repository:
         )
 
     method tags*(): seq[Commit] {. base .} =
+        const
+            tag  = "%(refname:short)"
+            hash = "%(if:equals=tag)%(objecttype)%(then)%(*objectname)%(else)%(objectname)%(end)"
         var
             output: string
             error: int
@@ -200,7 +204,7 @@ begin Repository:
             ExecHook as (
                 block:
                     error = percy.execCmdEx(output, @[
-                        "git for-each-ref --format='%(refname:short) %(objectname)' 'refs/tags/?*[0-9]*.*'"
+                        fmt "git for-each-ref --format='{tag} {hash}' 'refs/tags/?*[0-9]*.*'"
                     ])
 
                     if error:
@@ -213,4 +217,8 @@ begin Repository:
             let
                 parts = tag.split(' ', 1)
             if parts.len == 2:
-                result.add(Commit(id: parts[1], version: v(parts[0])))
+                result.add(Commit(
+                    id: parts[1],
+                    repository: this,
+                    version: v(parts[0].replace(re"^[^0-9]*", ""))
+                ))

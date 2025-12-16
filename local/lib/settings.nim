@@ -16,6 +16,7 @@ type
         meta* = newJObject()
         sources* = initOrderedTable[string, Source]()
         packages* = initOrderedTable[string, Package]()
+        repositories* = initTable[string, Repository]()
 
     Settings* = ref object of Class
         data* = SettingsData()
@@ -107,10 +108,17 @@ begin Settings:
                 break;
 
     method getRepository*(reference: string): Repository {. base .} =
+        var
+            instance: Repository
         if this.index.hasKey(reference):
-            result = Repository.init(this.index[reference])
+            instance = Repository.init(this.index[reference])
         else:
-            result = Repository.init(reference)
+            instance = Repository.init(reference)
+
+        if not this.data.repositories.hasKey(instance.sha1):
+            this.data.repositories[instance.sha1] = instance
+
+        result = this.data.repositories[instance.sha1]
 
     method load*(config: string = percy.name & ".json"): void {. base .} =
         var
