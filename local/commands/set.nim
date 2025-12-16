@@ -21,9 +21,13 @@ begin SetCommand:
 
         case setType:
             of "source":
-                this.settings.data.sources[setAlias] = Source.init(setUrl)
+                this.settings.data.sources[setAlias] = Source.init(
+                    this.settings.getRepository(setUrl)
+                )
             of "package":
-                this.settings.data.packages[setAlias] = Package.init(setUrl)
+                this.settings.data.packages[setAlias] = Package.init(
+                    this.settings.getRepository(setUrl)
+                )
 
         this.settings.prepare(true)
         try:

@@ -25,6 +25,26 @@ type
         config*: string
 
 begin Settings:
+    method getName*(url: string): string {. base .} =
+        result = parseUri(url).path.strip("/")
+        for name, value in this.index:
+            if url == value:
+                result = name
+                break;
+
+    method getRepository*(reference: string): Repository {. base .} =
+        var
+            instance: Repository
+        if this.index.hasKey(reference):
+            instance = Repository.init(this.index[reference])
+        else:
+            instance = Repository.init(reference)
+
+        if not this.cache.hasKey(instance.shaHash):
+            this.cache[instance.shaHash] = instance
+
+        result = this.cache[instance.shaHash]
+
     method validatePackages(node: JsonNode): void {. base .} =
         if node.kind != JObject:
             raise newException(ValueError, "`packages` must be an object.")
@@ -72,8 +92,7 @@ begin Settings:
     method validateMeta(node: JsonNode): void {. base .} =
         discard
 
-
-    method validate(node: JsonNode): void {. base .} =
+    method build(node: JsonNode): void {. base .} =
         try:
             if node.kind != JObject:
                 raise newException(ValueError, "must contain an object.")
@@ -85,12 +104,16 @@ begin Settings:
                     of "sources":
                         this.validateSources(value)
                         for name, url in value:
-                            this.data.sources[name] = Source.init(getStr(url))
+                            this.data.sources[name] = Source.init(
+                                this.getRepository(getStr(url))
+                            )
 
                     of "packages":
                         this.validatePackages(value)
                         for name, url in value:
-                            this.data.packages[name] = Package.init(getStr(url))
+                            this.data.packages[name] = Package.init(
+                                this.getRepository(getStr(url))
+                            )
 
                     else:
                         raise newException(ValueError, fmt "unknown configuration key '{key}'")
@@ -100,26 +123,6 @@ begin Settings:
                 ValueError,
                 (fmt "Invalid {percy.name}.json, ") & getCurrentExceptionMsg()
             )
-
-    method getName*(url: string): string {. base .} =
-        result = parseUri(url).path.strip("/")
-        for name, value in this.index:
-            if url == value:
-                result = name
-                break;
-
-    method getRepository*(reference: string): Repository {. base .} =
-        var
-            instance: Repository
-        if this.index.hasKey(reference):
-            instance = Repository.init(this.index[reference])
-        else:
-            instance = Repository.init(reference)
-
-        if not this.cache.hasKey(instance.shaHash):
-            this.cache[instance.shaHash] = instance
-
-        result = this.cache[instance.shaHash]
 
     method load*(config: string = percy.name & ".json"): void {. base .} =
         var
@@ -132,7 +135,7 @@ begin Settings:
         if fileExists(this.config):
             node = parseJson(readFile(this.config))
 
-            this.validate(node)
+            this.build(node)
 
         if fileExists(index):
             this.index = parseJson(readFile(index)).to(OrderedTable[string, string])

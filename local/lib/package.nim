@@ -13,8 +13,8 @@ begin Package:
     proc validateName*(name: string): void {. static .} =
         discard
 
-    method init*(url: string): void {. base .} =
-        this.repository = Repository.init(url)
+    method init*(repository: Repository): void {. base .} =
+        this.repository = repository
 
     method repository*(): Repository {. base .} =
         result = this.repository

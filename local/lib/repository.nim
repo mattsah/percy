@@ -14,6 +14,7 @@ type
 
     RUpdateStatus* = enum
         RUpdateCloned
+        RUpdateSkip
         RUpdateNone
         RUpdated
 
@@ -31,6 +32,9 @@ type
         repository*: Repository
 
 begin Commit:
+    proc `$`*(): string =
+        result = fmt "{this.id} ($this.version)"
+
     proc hash*(): Hash =
         result = hash(this.id)
 
@@ -115,14 +119,20 @@ begin Repository:
 
     method update*(): RUpdateStatus {. base .} =
         var
-            status: RUpdateStatus
             output: string
             error: int
+
+        result = RUpdateSkip
+
         if this.dirty:
+            this.dirty = false
+
             if not dirExists(this.cacheDir):
                 discard this.clone()
                 result = RUpdateCloned
             else:
+                when defined debug:
+                    echo fmt "Checking for updates in {this.url}"
                 percy.execIn(
                     ExecHook as (
                         block:
@@ -134,19 +144,17 @@ begin Repository:
                                     "'+refs/tags/*:refs/tags/*'"
                                 ]
                             )
-
-                            if error:
-                                raise newException(ValueError, fmt "failed updating {this.url}")
-                            elif not output.len:
-                                status = RUpdateNone
-                            else:
-                                echo fmt "Fetched new references from {this.url}"
-                                status = RUpdated
                     ),
                     this.cacheDir
                 )
-                result = status
-            this.dirty = false
+
+                if error:
+                    raise newException(ValueError, fmt "failed updating {this.url}")
+                elif not output.len:
+                    result = RUpdateNone
+                else:
+                    echo fmt "Fetched new references from {this.url}"
+                    result = RUpdated
 
     method list*(path: string, reference: string = "HEAD"): seq[string] {. base .} =
         var
@@ -194,7 +202,7 @@ begin Repository:
             this.cacheDir
         )
 
-    method tags*(): seq[Commit] {. base .} =
+    method commits*(): HashSet[Commit] {. base .} =
         const
             tag  = "%(refname:short)"
             hash = "%(if:equals=tag)%(objecttype)%(then)%(*objectname)%(else)%(objectname)%(end)"
@@ -208,7 +216,9 @@ begin Repository:
             ExecHook as (
                 block:
                     error = percy.execCmdEx(output, @[
-                        fmt "git for-each-ref --format='{tag} {hash}' 'refs/tags/?*[0-9]*.*'"
+                        fmt "git for-each-ref --format='{tag} {hash}'",
+                        fmt "'refs/tags/?*[0-9]*.*'",
+                        fmt "'refs/heads/*'"
                     ])
 
                     if error:
@@ -221,8 +231,15 @@ begin Repository:
             let
                 parts = tag.split(' ', 1)
             if parts.len == 2:
-                result.add(Commit(
-                    id: parts[1],
-                    repository: this,
-                    version: v(parts[0].replace(re"^[^0-9]*", ""))
-                ))
+                if parts[0].contains('.'):
+                    result.incl(Commit(
+                        id: parts[1],
+                        repository: this,
+                        version: v(parts[0].replace(re"^[^0-9]*", ""))
+                    ))
+                else:
+                    result.incl(Commit(
+                        id: parts[1],
+                        repository: this,
+                        version: v("0.0.0-branch." & parts[0].replace(re"[!@#$%^&*+_.,]", "-"))
+                    ))

@@ -34,7 +34,6 @@ proc getAppCacheDir*(subdir: string = ""): string =
     result = percy.getLocalDir("cache" / subdir)
 
 proc execCmd*(parts: seq[string]): int =
-    echo parts.join(" ")
     result = execCmd(parts.join(" "))
 
 proc execCmdEx*(output: var string, parts: seq[string]): int =

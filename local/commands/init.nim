@@ -21,8 +21,11 @@ begin InitCommand:
         else:
             this.settings.data.sources.clear()
             this.settings.data.packages.clear()
-            this.settings.data.sources["nim-lang"] = Source.init("gh://nim-lang/packages")
+
             this.settings.data.meta = newJObject()
+            this.settings.data.sources["nim-lang"] = Source.init(
+                this.settings.getRepository("gh://nim-lang/packages")
+            )
 
             this.settings.save()
 

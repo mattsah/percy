@@ -12,7 +12,15 @@ begin InstallCommand:
         this.settings.prepare()
 
         let
-            graph {. used .} = this.getGraph()
+            graph = this.getGraph()
+            solver = Solver.init(graph)
+        #[
+        ]#
+            results = solver.solve()
+
+        if isSome(results.solution):
+            for repository, version in results.solution.get():
+                echo fmt "{repository.url} {version}"
 
         # Build the dep graph and resolve
         # for each resolved hash

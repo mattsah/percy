@@ -52,13 +52,12 @@ begin BaseGraphCommand:
         this.solver = Solver.init()
 
     method getGraph*(quiet: bool = false): DepGraph {. base .} =
-        result =  DepGraph.init(this.settings, quiet or not this.verbose)
-
         let
-            repository = this.settings.getRepository(getCurrentDir())
+            quiet = quiet or not this.verbose
 
-        for requirement in this.nimbleInfo.requires:
-            result.addRequirement(
-                Commit(repository: repository),
-                result.parseRequirement(requirement)
-            )
+        result = DepGraph.init(this.settings, quiet)
+
+        result.build(this.nimbleInfo)
+
+        if not quiet:
+            result.report()
