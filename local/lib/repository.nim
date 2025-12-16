@@ -18,9 +18,11 @@ type
         RUpdated
 
     Repository* = ref object of Class
-        url: string
-        sha1: string
+        hash: Hash
+        shaHash: string
+        cacheDir: string
         origin: string
+        url: string
 
     Commit* = ref object of Class
         id*: string
@@ -32,14 +34,8 @@ begin Commit:
         result = hash(this.id)
 
 begin Repository:
-    proc `$`*(): string =
-        result = this.sha1
-
-    proc `%`*(): JsonNode =
-        result = newJString(this.sha1)
-
     proc hash*(): Hash =
-        result = hash(this.sha1)
+        result = this.hash
 
     proc qualifyUrl*(url: string): string {. static .} =
         var
@@ -71,45 +67,40 @@ begin Repository:
 
     method init*(url: string): void {. base .} =
         this.url = self.qualifyUrl(url)
-        this.sha1 = toLower($secureHash(toLower(this.url)))
+        this.hash = hash(toLower(this.url))
+        this.shaHash = toLower($secureHash(this.url))
+        this.cacheDir = percy.getAppCacheDir(this.shaHash)
         this.origin = url
 
     method url*(): string {. base .} =
         result = this.url
 
-    method sha1*(): string {. base .} =
-        result = this.sha1
-
     method origin*(): string {. base .} =
         result = this.origin
 
+    method shaHash*(): string {. base .} =
+        result = this.shaHash
+
     method cacheDir*(): string {. base .} =
-        result = percy.getAppCacheDir(this.sha1)
+        result = this.cacheDir
 
     method clone*(): RCloneStatus {. base .} =
         var
-            status: RCloneStatus
             error: int
 
-        percy.execIn(
-            ExecHook as (
-                block:
-                    if not dirExists(this.sha1):
-                        echo fmt "Downloading {this.url} into central caching"
+        if not dirExists(this.cacheDir):
+            echo fmt "Downloading {this.url} into central caching"
 
-                        error = percy.execCmd(@["git clone --bare", this.url, this.sha1])
+            error = percy.execCmd(@[
+                fmt "git clone --bare {this.url} {this.cacheDir}"
+            ])
 
-                        if error:
-                            raise newException(ValueError, fmt "failed cloning {this.url}")
-                        else:
-                            status = RCloneCreated
-                    else:
-                        status = RCloneExists
-            ),
-            percy.getAppCacheDir()
-        )
-
-        result = status
+            if error:
+                raise newException(ValueError, fmt "failed cloning {this.url}")
+            else:
+                result = RCloneCreated
+        else:
+            result = RCloneExists
 
     method update*(): RUpdateStatus {. base .} =
         var

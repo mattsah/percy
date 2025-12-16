@@ -1,10 +1,11 @@
 import
     percy,
-    mininim/dic,
     std/uri,
+    std/hashes,
     lib/source,
     lib/package,
-    lib/repository
+    lib/repository,
+    mininim/dic
 
 export
     source,
@@ -16,7 +17,7 @@ type
         meta* = newJObject()
         sources* = initOrderedTable[string, Source]()
         packages* = initOrderedTable[string, Package]()
-        repositories* = initHashSet[Repository]()
+        repositories* = initTable[string, Repository]()
 
     Settings* = ref object of Class
         data* = SettingsData()
@@ -115,10 +116,10 @@ begin Settings:
         else:
             instance = Repository.init(reference)
 
-        if not this.data.repositories.contains(instance):
-            this.data.repositories.incl(instance)
+        if not this.data.repositories.hasKey(instance.shaHash):
+            this.data.repositories[instance.shaHash] = instance
 
-        result = this.data.repositories[instance]
+        result = this.data.repositories[instance.shaHash]
 
     method load*(config: string = percy.name & ".json"): void {. base .} =
         var

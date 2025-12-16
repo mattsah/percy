@@ -168,7 +168,7 @@ begin DepGraph:
         block checkUsability:
             for _, requirements in this.requirements:
                 for requirement in requirements:
-                    if tag.repository.hash == requirement.repository.hash:
+                    if tag.repository == requirement.repository:
                         usable = false
                         if requirement.constraint.check(tag.version):
                             usable = true
@@ -181,7 +181,7 @@ begin DepGraph:
             for file in repository.list("/", tag.id):
                 if file.endsWith(".nimble"):
                     when debugging(2):
-                        echo repository.read(file, commit.id)
+                        echo repository.read(file, tag.id)
                     nimbleInfo = parser.parseFile(repository.read(file, tag.id))
                     for requirement in nimbleInfo.requires:
                         this.addRequirement(tag, this.parseRequirement(requirement))

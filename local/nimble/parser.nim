@@ -3,10 +3,10 @@
 ## probably more fragile than the declarative parser.
 ##
 ## Copyright (C) 2025 Trayambak Rai (xtrayambak at disroot dot org)
-import std/[strutils, tables, osproc]
+import std/[strutils, tables]
 import nimble/fileinfo
 
-export fileinfo, osproc
+export fileinfo
 
 func parseFile*(source: string): NimbleFileInfo =
   var pkg: NimbleFileInfo
