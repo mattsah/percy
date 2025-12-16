@@ -16,7 +16,7 @@ type
         meta* = newJObject()
         sources* = initOrderedTable[string, Source]()
         packages* = initOrderedTable[string, Package]()
-        repositories* = initTable[string, Repository]()
+        repositories* = initHashSet[Repository]()
 
     Settings* = ref object of Class
         data* = SettingsData()
@@ -115,10 +115,10 @@ begin Settings:
         else:
             instance = Repository.init(reference)
 
-        if not this.data.repositories.hasKey(instance.sha1):
-            this.data.repositories[instance.sha1] = instance
+        if not this.data.repositories.contains(instance):
+            this.data.repositories.incl(instance)
 
-        result = this.data.repositories[instance.sha1]
+        result = this.data.repositories[instance]
 
     method load*(config: string = percy.name & ".json"): void {. base .} =
         var
