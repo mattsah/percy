@@ -25,8 +25,8 @@ type
     DepGraph* = ref object of Class
         quiet: bool
         commits: Table[Repository, seq[Commit]]
-        excludes: Table[Repository, seq[Commit]]
         requirements: Table[Commit, seq[Requirement]]
+        excludes: HashSet[Commit]
         settings: Settings
 
     Solver* = ref object of Class
@@ -192,7 +192,7 @@ begin DepGraph:
                 echo fmt "  Repository: {tag.repository.url}"
                 echo fmt "  Version: {tag.version}"
 
-            this.excludes[tag.repository].add(tag)
+            this.excludes.incl(tag)
 
     #[
     ##
@@ -204,9 +204,6 @@ begin DepGraph:
                 echo fmt "  Repository: {repository.url}"
 
             this.commits[repository] = repository.tags
-
-        if not this.excludes.hasKey(repository):
-            this.excludes[repository] = newSeq[Commit]()
 
     #[
     ##
@@ -223,7 +220,7 @@ begin DepGraph:
         this.addRepository(requirement.repository)
 
         for tag in this.commits[requirement.repository]:
-            if this.excludes[tag.repository].contains(tag):
+            if this.excludes.contains(tag):
                 continue
             if not requirement.constraint.check(tag.version):
                 continue
