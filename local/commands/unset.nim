@@ -22,17 +22,20 @@ begin UnsetCommand:
             of "package":
                 this.settings.data.packages.del(setAlias)
 
-        this.settings.prepare()
-        # Check if dependency graph still works with these settings
-        # warn if not that packages should be removed or fixed up
-        this.settings.save()
+        this.settings.prepare(true)
+        try:
+            discard this.getGraph(true)
+            this.settings.save()
+        except:
+            raise getCurrentException() # replace with handling
 
 shape UnsetCommand: @[
     Command(
         name: "unset",
         description: "Unset a source or package URL",
         opts: @[
-            CommandFileOpt
+            CommandConfigOpt,
+            CommandVerboseOpt,
         ],
         args: @[
             Arg(

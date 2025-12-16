@@ -19,6 +19,7 @@ type
 
     Repository* = ref object of Class
         hash: Hash
+        dirty: bool
         shaHash: string
         cacheDir: string
         origin: string
@@ -44,8 +45,17 @@ begin Repository:
         if not uri.scheme:
             if dirExists(uri.path / ".git"):
                 uri.path = $absolutePath(Path uri.path)
+            elif uri.path.match(re"^.+\@.+\:.+$"):
+                var
+                    parts = uri.path.split(':')
+                    uhost = parts[0].split('@')
+
+                uri.path = parts[1]
+                uri.scheme = "git+ssh"
+                uri.username = uhost[0]
+                uri.hostname = uhost[1]
         else:
-            if uri.scheme notin ["http", "https"]:
+            if uri.scheme notin ["http", "https", "git+ssh"]:
                 case uri.scheme:
                     of "gh", "github":
                         uri.path = uri.hostname & uri.path
@@ -57,8 +67,8 @@ begin Repository:
                         raise newException(ValueError, fmt "invalid scheme {uri.scheme}")
                 uri.scheme = "https"
 
-            if uri.path.endsWith(".git"):
-                uri.path = uri.path[0..^5]
+        if uri.scheme and uri.path.endsWith(".git"):
+            uri.path = uri.path[0..^5]
 
         result = $uri
 
@@ -71,6 +81,7 @@ begin Repository:
         this.shaHash = toLower($secureHash(this.url))
         this.cacheDir = percy.getAppCacheDir(this.shaHash)
         this.origin = url
+        this.dirty = true
 
     method url*(): string {. base .} =
         result = this.url
@@ -107,33 +118,35 @@ begin Repository:
             status: RUpdateStatus
             output: string
             error: int
-        if not dirExists(this.cacheDir):
-            discard this.clone()
-            result = RUpdateCloned
-        else:
-            percy.execIn(
-                ExecHook as (
-                    block:
-                        error = percy.execCmdEx(
-                            output,
-                            @[
-                                "git fetch origin -f --prune",
-                                "'+refs/heads/*:refs/heads/*'",
-                                "'+refs/tags/*:refs/tags/*'"
-                            ]
-                        )
+        if this.dirty:
+            if not dirExists(this.cacheDir):
+                discard this.clone()
+                result = RUpdateCloned
+            else:
+                percy.execIn(
+                    ExecHook as (
+                        block:
+                            error = percy.execCmdEx(
+                                output,
+                                @[
+                                    "git fetch origin -f --prune",
+                                    "'+refs/heads/*:refs/heads/*'",
+                                    "'+refs/tags/*:refs/tags/*'"
+                                ]
+                            )
 
-                        if error:
-                            raise newException(ValueError, fmt "failed updating {this.url}")
-                        elif not output.len:
-                            status = RUpdateNone
-                        else:
-                            echo fmt "Fetched new references from {this.url}"
-                            status = RUpdated
-                ),
-                this.cacheDir
-            )
-            result = status
+                            if error:
+                                raise newException(ValueError, fmt "failed updating {this.url}")
+                            elif not output.len:
+                                status = RUpdateNone
+                            else:
+                                echo fmt "Fetched new references from {this.url}"
+                                status = RUpdated
+                    ),
+                    this.cacheDir
+                )
+                result = status
+            this.dirty = false
 
     method list*(path: string, reference: string = "HEAD"): seq[string] {. base .} =
         var

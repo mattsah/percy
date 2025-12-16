@@ -25,18 +25,20 @@ begin SetCommand:
             of "package":
                 this.settings.data.packages[setAlias] = Package.init(setUrl)
 
-        this.settings.prepare()
-        # Check if dependency graph still works with these settings
-        # warn if not that packages should be fixed up
-        this.settings.save()
-
+        this.settings.prepare(true)
+        try:
+            discard this.getGraph(true)
+            this.settings.save()
+        except:
+            raise getCurrentException() # replace with handling
 
 shape SetCommand: @[
     Command(
         name: "set",
         description: "Set a source or package URL",
         opts: @[
-            CommandFileOpt
+            CommandConfigOpt,
+            CommandVerboseOpt,
         ],
         args: @[
             Arg(

@@ -12,8 +12,8 @@ begin InitCommand:
         let
             reset = console.getOpt("reset", "r")
 
-        if fileExists(this.file) and reset of false:
-            stdout.write fmt "Percy is already initialized in {this.file}."
+        if fileExists(this.config) and reset of false:
+            stdout.write fmt "Percy is already initialized in {this.config}."
             stdout.write fmt " You can use set/unset commands to modify it"
             stdout.write '\n'
 
@@ -31,7 +31,8 @@ shape InitCommand: @[
         name: "init",
         description: "Initialize as a percy package",
         opts: @[
-            CommandFileOpt,
+            CommandConfigOpt,
+            CommandVerboseOpt,
             Opt(
                 flag: "r",
                 name: "reset",

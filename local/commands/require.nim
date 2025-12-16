@@ -18,7 +18,8 @@ shape RequireCommand: @[
         name: "require",
         description: "Add a requirement to the project",
         opts: @[
-            CommandFileOpt
+            CommandConfigOpt,
+            CommandVerboseOpt,
         ]
     )
 ]

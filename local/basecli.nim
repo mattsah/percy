@@ -12,7 +12,8 @@ export
 
 type
     BaseCommand* = ref object of Class
-        file*: string
+        config*: string
+        verbose*: string
         settings*: Settings
 
     BaseGraphCommand* = ref object of BaseCommand
@@ -20,19 +21,28 @@ type
         solver*: Solver
 
 let
-    CommandFileOpt* = Opt(
-        flag: "f",
-        name: "file",
+    CommandConfigOpt* = Opt(
+        flag: "c",
+        name: "config",
         default: "percy.json",
-        description: "The settings filename"
+        description: "The configuration settings filename"
     )
+
+    CommandVerboseOpt* = Opt(
+        flag: "v",
+        name: "verbose",
+        description: "Whether or not to be verbose in output"
+    )
+
+
 
 begin BaseCommand:
     method execute*(console: Console): int {. base .} =
         result = 0
 
-        this.file = console.getOpt("file", "f")
-        this.settings = this.app.get(Settings).open(this.file)
+        this.config = console.getOpt("config", "c")
+        this.verbose = console.getOpt("verbose", "v")
+        this.settings = this.app.get(Settings).open(this.config)
 
 begin BaseGraphCommand:
     method execute*(console: Console): int =
@@ -41,8 +51,8 @@ begin BaseGraphCommand:
         this.nimbleInfo = percy.getNimbleInfo()
         this.solver = Solver.init()
 
-    method getGraph*(): DepGraph {. base .} =
-        result =  DepGraph.init(this.settings, false)
+    method getGraph*(quiet: bool = false): DepGraph {. base .} =
+        result =  DepGraph.init(this.settings, quiet or not this.verbose)
 
         let
             repository = this.settings.getRepository(getCurrentDir())

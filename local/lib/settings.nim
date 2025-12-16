@@ -17,10 +17,10 @@ type
         meta* = newJObject()
         sources* = initOrderedTable[string, Source]()
         packages* = initOrderedTable[string, Package]()
-        repositories* = initTable[string, Repository]()
 
     Settings* = ref object of Class
         data* = SettingsData()
+        cache* = initTable[string, Repository]()
         index*: OrderedTable[string, string]
         config*: string
 
@@ -116,10 +116,10 @@ begin Settings:
         else:
             instance = Repository.init(reference)
 
-        if not this.data.repositories.hasKey(instance.shaHash):
-            this.data.repositories[instance.shaHash] = instance
+        if not this.cache.hasKey(instance.shaHash):
+            this.cache[instance.shaHash] = instance
 
-        result = this.data.repositories[instance.shaHash]
+        result = this.cache[instance.shaHash]
 
     method load*(config: string = percy.name & ".json"): void {. base .} =
         var
@@ -199,7 +199,7 @@ begin Settings:
         writeFile(percy.target / "index." & this.config, $(%(this.index)))
 
 
-    method prepare*(): void {. base .} =
+    method prepare*(reindex: bool = false): void {. base .} =
         var
             updated = false
 
@@ -216,6 +216,9 @@ begin Settings:
                             updated = true
                         else:
                             discard
+        if reindex:
+            removeFile(percy.target / "index." & this.config)
+
         if updated or not fileExists(percy.target / "index." & this.config):
             this.index()
 

@@ -24,7 +24,8 @@ shape InstallCommand: @[
         name: "install",
         description: "Install all dependencies (use lock file if exists)",
         opts: @[
-            CommandFileOpt
+            CommandConfigOpt,
+            CommandVerboseOpt,
         ]
     )
 ]
