@@ -6,9 +6,64 @@ type
     InitCommand = ref object of BaseCommand
 
 begin InitCommand:
+    method getPaths(): string {. base .} =
+        result = dedent(
+            fmt """
+            # <{percy.name}>
+
+            when withDir(thisDir(), system.fileExists("vendor/{percy.name}.paths")):
+                include "vendor/{percy.name}.paths"
+
+            # </{percy.name}>
+            """
+        )
+
+    method getTasks(): string {. base .} =
+        result = dedent(
+            fmt """
+            # <{percy.name}>
+
+            import
+                std/os,
+                std/strutils
+
+            #
+            # Internal commands
+            #
+
+            proc build(args: seq[string]): void =
+                for path in listFiles("./"):
+                    if path.endsWith(".nim"):
+                        exec @[
+                            "nim -o:bin/" & splitFile(path).name,
+                            commandLineParams()[1..^1].join(" "),
+                            args.join(" "),
+                            "c " & path
+                        ].join(" ")
+
+            # Tasks
+
+            task test, "Run testament tests":
+                exec "testament --megatest:off --directory:testing " & commandLineParams()[1..^1].join(" ")
+
+            task build, "Build the application (whatever it's called)":
+                when defined release:
+                    build(@["--opt:speed", "--linetrace:on", "--checks:on"])
+                elif defined debug:
+                    build(@["--debugger:native", "--stacktrace:on", "--linetrace:on", "--checks:on"])
+                else:
+                    build(@["--stacktrace:on", "--linetrace:on", "--checks:on"])
+
+            # </{percy.name}>
+            """
+        )
+
     method execute(console: Console): int =
         result = super.execute(console)
 
+        var
+            configIn: seq[string]
+            configOut: seq[string]
         let
             reset = console.getOpt("reset", "r")
 
@@ -20,11 +75,41 @@ begin InitCommand:
             this.settings.data.sources["nim-lang"] = Source.init(
                 this.settings.getRepository("gh://nim-lang/packages")
             )
-        else:
-            if fileExists(this.config):
-                this.settings.index()
 
+        if fileExists("config.nims"):
+            configIn = readFile("config.nims").split('\n')
+
+        var
+            nowrite = 0
+
+        for line in configIn:
+            if line == fmt "# <{percy.name}>":
+                inc nowrite
+                continue
+            if line == fmt "# </{percy.name}>":
+                dec nowrite
+                continue
+
+            if nowrite:
+                continue
+
+            configOut.add(line)
+
+        var
+            config = ""
+
+        config = configOut.join("\n")
+        config = config & "\n" & this.getPaths().strip()
+
+        if console.getOpt("writeTasks", "w") of true:
+            config = config & "\n" & this.getTasks.strip()
+
+        writeFile("config.nims", config)
+
+        this.settings.prepare(true)
         this.settings.save()
+
+
 
 shape InitCommand: @[
     Command(
@@ -34,9 +119,14 @@ shape InitCommand: @[
             CommandConfigOpt,
             CommandVerboseOpt,
             Opt(
+                flag: "w",
+                name: "withTasks",
+                description: "Include nim build/test tasks"
+            ),
+            Opt(
                 flag: "r",
                 name: "reset",
-                description: "Force re-initialization (resetting sources/packages)"
+                description: "Reset the source/packages back to standard nim"
             )
         ]
     )

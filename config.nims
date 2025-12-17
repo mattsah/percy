@@ -1,7 +1,3 @@
-import
-    std/os,
-    std/strutils
-
 #
 # Common arguments
 #
@@ -11,6 +7,18 @@ import
 --verbosity:1
 --path:"./local"
 --path:"./vendor"
+
+# <percy>
+
+when withDir(thisDir(), system.fileExists("vendor/percy.paths")):
+    include "vendor/percy.paths"
+
+# </percy>
+# <percy>
+
+import
+    std/os,
+    std/strutils
 
 #
 # Internal commands
@@ -39,7 +47,4 @@ task build, "Build the application (whatever it's called)":
     else:
         build(@["--stacktrace:on", "--linetrace:on", "--checks:on"])
 
-# begin Nimble config (version 2)
-when withDir(thisDir(), system.fileExists("nimble.paths")):
-  include "nimble.paths"
-# end Nimble config
+# </percy>
