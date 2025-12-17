@@ -208,8 +208,6 @@ begin DepGraph:
     ##
     ]#
     method resolve*(commit: Commit): void {. base .} =
-        var
-            nimbleInfo: NimbleFileInfo
         let
             key = (commit.repository, commit.version)
 

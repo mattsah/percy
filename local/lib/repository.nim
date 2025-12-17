@@ -132,7 +132,7 @@ begin Repository:
             else:
                 result = RCloneCreated
 
-    method exec*(cmdParts: seq[string], output: var string = ""): int {. base .} =
+    method exec*(cmdParts: seq[string], output: var string): int {. base .} =
         var
             error: int
             wrappedOutput: string

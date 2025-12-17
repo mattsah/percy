@@ -29,7 +29,10 @@ begin Settings:
         result = parseUri(url).path.strip("/")
         for name, value in this.index:
             if url == value:
-                result = name
+                if name.contains('/'):
+                    result = name
+                else:
+                    result = "@global" / name
                 break;
 
     method getRepository*(reference: string): Repository {. base .} =
