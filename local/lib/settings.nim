@@ -154,7 +154,7 @@ begin Settings:
 
         for name, source in this.data.sources:
             let
-                content = source.repository.read("packages.json")
+                content = source.repository.readFile("packages.json")
             if content.len:
                 let
                     packages = parseJson(content)

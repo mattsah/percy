@@ -34,9 +34,7 @@ type
 
     Assignment = object
         level: DecisionLevel
-        repository: Repository
-        antecedent: Option[seq[Requirement]]
-        version: Version
+        commit: Commit
 
     Solver* = ref object of Class
         graph: DepGraph
@@ -50,7 +48,7 @@ type
         backtrackCount*: int
         timeTaken*: float
 
-    Solution* = Table[Repository, Version]
+    Solution* = seq[Commit]
 
 begin Constraint:
     discard
@@ -92,54 +90,64 @@ begin DepGraph:
     #[
     ##
     ]#
-    method parseConstraint*(constraint: string, repository: Repository): Constraint {. base .}=
+    method parseConstraint*(constraint: string, repository: Repository): Constraint {. base .} =
         let
             cleaned = constraint.replace(" ", "")
+            fix = proc(numericV: string): string =
+                result = numericV
+                for i in numericV.split('.').len..2:
+                    result = result & ".0"
 
-        if cleaned.startsWith("=="):
-            return Constraint(check: ConstraintHook as (
-                result = v == v(cleaned[2..^1])
-            ))
-        elif cleaned.startsWith(">="):
-            return Constraint(check: ConstraintHook as (
-                result = v >= v(cleaned[2..^1])
-            ))
-        elif cleaned.startsWith("<="):
-            return Constraint(check: ConstraintHook as (
-                result = v <= v(cleaned[2..^1])
-            ))
-        elif cleaned.startsWith("<"):
-            return Constraint(check: ConstraintHook as (
-                result = v < v(cleaned[1..^1])
-            ))
-        elif cleaned.startsWith(">"):
-            return Constraint(check: ConstraintHook as (
-                result = v > v(cleaned[1..^1])
-            ))
-        else:
-            let
-                now = v(cleaned[1..^1])
-            if cleaned.startsWith("~"):
-                let
-                    next = Version(major: now.major, minor: now.minor + 1, patch: 0)
-                return Constraint(check: ConstraintHook as (
-                    result = v >= now and v < next
-                ))
-            elif cleaned.startsWith("^"):
-                let
-                    next = Version(major: now.major + 1, minor: 0, patch: 0)
-                return Constraint(check: ConstraintHook as (
-                    result = v >= now and v < next
-                ))
-            elif cleaned.startsWith("#"):
-                return Constraint(check: ConstraintHook as (
-                    block:
-                        let
-                            head = cleaned[1..^1].replace(re"[!@#$%^&*+_.,]", "-")
-                        result = v == v("0.0.0-branch." & head)
-                ))
+        return Constraint(
+            check: ConstraintHook as (
+                block:
+                    try:
+                        if cleaned.startsWith("=="):
+                            return v == v(fix(cleaned[2..^1]))
+                        elif cleaned.startsWith(">="):
+                            return v >= v(fix(cleaned[2..^1]))
+                        elif cleaned.startsWith("<="):
+                            return v <= v(fix(cleaned[2..^1]))
+                        elif cleaned.startsWith("<"):
+                            return v < v(fix(cleaned[1..^1]))
+                        elif cleaned.startsWith(">"):
+                            return v > v(fix(cleaned[1..^1]))
+                        else:
+                            if cleaned.startsWith("#"):
+                                let
+                                    head = cleaned[1..^1].replace(re"[!@#$%^&*+_.,]", "-")
+                                return v == v("0.0.0-branch." & head)
+                            else:
+                                let
+                                    now = v(fix(cleaned[1..^1]))
+                                if cleaned.startsWith("~"):
+                                    let
+                                        next = Version(
+                                            major: now.major,
+                                            minor: now.minor + 1,
+                                            patch: 0
+                                        )
+                                    return v >= now and v < next
+                                elif cleaned.startsWith("^"):
+                                    let
+                                        next = Version(
+                                            major: now.major + 1,
+                                            minor: 0,
+                                            patch: 0
+                                        )
+                                    return v >= now and v < next
+                                else:
+                                    discard
+                    except:
+                        discard
 
-        raise newException(ValueError, "Invalid version constraint '{constraint}'")
+                    raise newException(
+                        ValueError,
+                        fmt "Invalid version constraint '{constraint}': {getCurrentExceptionMsg()}"
+                    )
+            )
+        )
+
 
     #[
     ##
@@ -192,13 +200,9 @@ begin DepGraph:
         echo "Graph: Graph Completed With Usable Versions"
 
         for repository, commits in this.commits:
-            let
-                versions = commits.mapIt($(it.version)).join(", ")
-
             echo fmt "  {repository.url}:"
-            echo fmt ""
-            echo fmt "  {versions}"
-            echo fmt ""
+            for commit in commits:
+                echo fmt "    {commit.version}"
 
     #[
     ##
@@ -216,12 +220,12 @@ begin DepGraph:
 
             this.requirements[key] = newSeq[Requirement]()
 
-            for file in commit.repository.list("/", commit.id):
+            for file in commit.repository.listDir("/", commit.id):
                 if file.endsWith(".nimble"):
                     when debugging(2):
                         echo repository.read(file, commit.id)
-                    nimbleInfo = parser.parseFile(commit.repository.read(file, commit.id))
-                    for requirement in nimbleInfo.requires:
+                    commit.info = parser.parseFile(commit.repository.readFile(file, commit.id))
+                    for requirement in commit.info.requires:
                         this.addRequirement(commit, this.parseRequirement(requirement))
                     break
 
@@ -286,7 +290,13 @@ begin DepGraph:
             this.commits[commit.repository].excl(commit)
 
         for commit in toResolve:
-            this.resolve(commit)
+            if this.commits[commit.repository].contains(commit):
+                this.resolve(commit)
+            else:
+                if not this.quiet:
+                    echo fmt "Graph: Skipping Resolution (Already Removed)"
+                    echo fmt "  Repository: {commit.repository.url}"
+                    echo fmt "  Version: {commit.version}"
 
         this.requirements[key].add(requirement)
 
@@ -330,126 +340,104 @@ begin Solver:
 
     #[
     ##
-    method analyze*(solver: Solver, conflict: seq[Requirement]): seq[Requirement] {. base .} =
-        var
-            learned = initHashSet[Requirement]()
-
-        for dep in conflict:
-            learned.incl(dep)
-
-        toSeq(learned)
-    ]#
-
-    #[
-    ##
     ]#
     method solve*(): SolverResult {. base .} =
         var
             backtrackCount = 0
+            knownConflicts = initHashSet[(Commit, Commit)]()
 
         while true:
-            var
-                changed = true
+            #
+            # If all repositories have been assigned a version, we're done.
+            #
 
-            while changed:
-                changed = false
-
-                for dependant, requirements in this.graph.requirements:
-                    let
-                        repository = dependant[0] # Tuple unpacking doesn't seem to work in loop
-                        version {. used .} = dependant[1]
-
-                    if repository in this.assignments:
-                        continue
-
-                    # If all but one dependency is satisfied, the last one is forced
-                    var
-                        unsatisfied: seq[Requirement] = @[]
-
-                    for requirement in requirements:
-                        if requirement.repository in this.assignments:
-                            let
-                                assignedVersion = this.assignments[requirement.repository].version
-                            if not requirement.constraint.check(assignedVersion):
-                                unsatisfied.add(requirement)
-                        else:
-                            unsatisfied.add(requirement)
-
-                    if unsatisfied.len == 1:
-                        # Unit clause - forced assignment
-                        let
-                            forcedRequirement = unsatisfied[0]
-                        # We would need to choose a version that satisfies the constraint
-                        # Simplified for this example
-                        changed = true
-
-            # All variables assigned?
             if this.assignments.len == this.graph.commits.len:
                 var
-                    solution = initTable[Repository, Version]()
+                    solution = newSeq[Commit]()
 
                 for repository, assignment in this.assignments:
-                    solution[repository] = assignment.version
+                    solution.add(assignment.commit)
 
                 return SolverResult(
                     solution: some(solution),
                     backtrackCount: backtrackCount
                 )
 
+            #
             # Make a decision
+            #
             for repository in this.graph.commits.keys:
-                if not this.assignments.hasKey(repository):
-                    # Choose a version (simplified - always pick newest)
+                if this.assignments.hasKey(repository):
+                    #
+                    # We've already assigned this repository, just continue.  The assigmnet may
+                    # be removed later if not version of the next level down is found to be
+                    # consistent iwth it.
+                    #
+                    continue
+
+                for commit in this.graph.commits[repository]:
+                    var
+                        consistentWithOtherAssignments = true
                     let
-                        tags = this.graph.commits[repository]
+                        key = (commit.repository, commit.version)
 
-                    for tag in tags:
-                        # Check consistency
-                        var
-                            consistent = true
-                        let
-                            key = (repository, tag.version)
+                    if this.graph.requirements.hasKey(key):
+                        #
+                        # We loop through all of the requirements for this commit and check to see
+                        # if any of our existing assignments violat them.
+                        #
+                        for requirement in this.graph.requirements[key]:
+                            if this.assignments.hasKey(requirement.repository):
+                                let
+                                    assignment = this.assignments[requirement.repository]
 
-                        if this.graph.requirements.hasKey(key):
-                            for requirement in this.graph.requirements[key]:
-                                if requirement.repository in this.assignments:
-                                    if not requirement.constraint.check(this.assignments[requirement.repository].version):
-                                        consistent = false
-                                        break
+                                if not requirement.constraint.check(assignment.commit.version):
+                                    knownConflicts.incl((assignment.commit, commit))
+                                    knownConflicts.incl((commit, assignment.commit))
+                                    consistentWithOtherAssignments = false
+                                    break
 
-                        if consistent:
-                            this.assignments[repository] = Assignment(
-                                level: this.level,
-                                repository: repository,
-                                version: tag.version
-                            )
-                            break
+                    if consistentWithOtherAssignments:
+                        #
+                        # We were found to be consistent with all other assignments, so let's add
+                        # ourself to the assignment.
+                        #
+                        this.assignments[repository] = Assignment(
+                            level: this.level,
+                            commit: commit
+                        )
+                        break
 
-                    if repository notin this.assignments:
-                        backtrackCount += 1
+                if repository notin this.assignments:
+                    #
+                    # We've run through all the commmits on this repo and found none that are
+                    # consistent, thus far, so we need to go back up one level.
+                    #
+                    inc backtrackCount
 
-                        # Simplified backtracking (full CDCL would analyze conflict)
-                        if this.level == 0:
-                            return SolverResult(
-                                solution: none(Solution),
-                                backtrackCount: backtrackCount
-                            )
+                    if this.level == 0:
+                        return SolverResult(
+                            solution: none(Solution),
+                            backtrackCount: backtrackCount
+                        )
 
-                        # Backtrack to previous decision level
-                        var
-                            toRemove = initHashSet[Repository]()
-                        for repository, assignment in this.assignments:
-                            if assignment.level >= this.level:
-                                toRemove.incl(repository)
+                    #
+                    # Backtrack to previous decision level by removing any at higher or current
+                    # levels.
+                    #
+                    var
+                        toRemove = initHashSet[Repository]()
+                    for repository, assignment in this.assignments:
+                        if assignment.level >= this.level:
+                            toRemove.incl(repository)
 
-                        for repository in toRemove:
-                            this.assignments.del(repository)
+                    for repository in toRemove:
+                        this.assignments.del(repository)
 
-                        this.level -= 1
+                    dec this.level
 
-                    break
-
-        # Should not reach here
-        result = SolverResult(
-            solution: none(Solution)
-        )
+                #
+                # If we got here, we've either:
+                # 1. Assigned a commit for the given repository or...
+                # 2.
+                break

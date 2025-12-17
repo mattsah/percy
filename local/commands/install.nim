@@ -11,6 +11,8 @@ begin InstallCommand:
 
         this.settings.prepare()
 
+        var
+            checkouts: seq[Checkout]
         let
             graph = this.getGraph()
             solver = Solver.init(graph)
@@ -19,8 +21,7 @@ begin InstallCommand:
             results = solver.solve()
 
         if isSome(results.solution):
-            for repository, version in results.solution.get():
-                echo fmt "{repository.url} {version}"
+            checkouts = this.loadSolution(results.solution.get())
 
         # Build the dep graph and resolve
         # for each resolved hash

@@ -38,6 +38,7 @@ proc execCmd*(parts: seq[string]): int =
 
 proc execCmdEx*(output: var string, parts: seq[string]): int =
     (output, result) = execCmdEx(parts.join(" "))
+    output = output.strip()
 
 proc execCmds*(commands: varargs[seq[string]]): int =
     for command in commands:
@@ -60,3 +61,19 @@ proc execIn*(callback: ExecHook, dir: string = percy.getLocalDir()): void =
         when defined debug:
             echo fmt "Leaving directory '{dir}'"
         setCurrentDir(originalDir)
+
+proc onlyDirs*(path: string): seq[string] =
+    var
+        directories = newSeq[string]()
+        hasFiles = false
+    for item in walkDir(path):
+        if dirExists(item.path):
+            if not symlinkExists(item.path):
+                directories.add(item.path)
+        else:
+            hasFiles = true
+    if not hasFiles:
+        for subDirectory in directories:
+            result.add(percy.onlyDirs(subDirectory))
+
+    result.add(directories)

@@ -6,9 +6,7 @@ import
 # Common arguments
 #
 
---threads:on
---threadAnalysis:off
---mm:atomicArc # Still required or mummy blows up
+--mm:atomicArc
 --deepcopy:on
 --verbosity:1
 --path:"./local"

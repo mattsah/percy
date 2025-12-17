@@ -30,6 +30,18 @@ type
         id*: string
         version*: Version
         repository*: Repository
+        info*: NimbleFileInfo
+
+    WorkTree* = ref object of Class
+        repository*: Repository
+        head*: string
+        path*: string
+
+    Checkout* = ref object of Class
+        repository*: Repository
+        commit*: Commit
+        path*: string
+
 
 begin Commit:
     proc `$`*(): string =
@@ -99,11 +111,16 @@ begin Repository:
     method cacheDir*(): string {. base .} =
         result = this.cacheDir
 
+    method exists*(): bool {. base .} =
+        result = dirExists(this.cacheDir)
+
     method clone*(): RCloneStatus {. base .} =
         var
             error: int
 
-        if not dirExists(this.cacheDir):
+        if this.exists:
+            result = RCloneExists
+        else:
             echo fmt "Downloading {this.url} into central caching"
 
             error = percy.execCmd(@[
@@ -114,132 +131,187 @@ begin Repository:
                 raise newException(ValueError, fmt "failed cloning {this.url}")
             else:
                 result = RCloneCreated
-        else:
-            result = RCloneExists
+
+    method exec*(cmdParts: seq[string], output: var string = ""): int {. base .} =
+        var
+            error: int
+            wrappedOutput: string
+
+        if not this.exists:
+            discard this.clone()
+
+        percy.execIn(
+            ExecHook as (
+                block:
+                    (wrappedOutput, error) = execCmdEx(cmdParts.join(" "))
+            ),
+            this.cacheDir
+        )
+
+        result = error
+        output = wrappedOutput
 
     method update*(): RUpdateStatus {. base .} =
         var
-            output: string
             error: int
+            output: string
 
         result = RUpdateSkip
 
         if this.dirty:
             this.dirty = false
 
-            if not dirExists(this.cacheDir):
+            if not this.exists:
                 discard this.clone()
                 result = RUpdateCloned
+
+            when defined debug:
+                echo fmt "Checking for updates in {this.url}"
+
+            error = this.exec(
+                @[
+                    fmt "git fetch origin -f --prune",
+                    fmt "'+refs/tags/*:refs/{percy.name}/*'",
+                    fmt "'+refs/heads/*:refs/{percy.name}/*'"
+                ],
+                output
+            )
+
+            if error:
+                raise newException(ValueError, fmt "failed updating {this.url}: {output}")
+            elif not output.len:
+                result = RUpdateNone
             else:
-                when defined debug:
-                    echo fmt "Checking for updates in {this.url}"
-                percy.execIn(
-                    ExecHook as (
-                        block:
-                            error = percy.execCmdEx(
-                                output,
-                                @[
-                                    "git fetch origin -f --prune",
-                                    "'+refs/heads/*:refs/heads/*'",
-                                    "'+refs/tags/*:refs/tags/*'"
-                                ]
-                            )
-                    ),
-                    this.cacheDir
-                )
-
-                if error:
-                    raise newException(ValueError, fmt "failed updating {this.url}")
-                elif not output.len:
-                    result = RUpdateNone
-                else:
-                    echo fmt "Fetched new references from {this.url}"
-                    result = RUpdated
-
-    method list*(path: string, reference: string = "HEAD"): seq[string] {. base .} =
-        var
-            output: string
-            error: int
-        percy.execIn(
-            ExecHook as (
-                block:
-                    error = percy.execCmdEx(
-                        output,
-                        @[
-                            fmt "git ls-tree --name-only {reference} --name-only :{path}"
-                        ]
-                    )
-            ),
-            this.cacheDir
-        )
-
-        if not error:
-            result = output.strip().split('\n')
-
-    method read*(path: string, reference: string = "HEAD"): string {. base .} =
-        let
-            file = reference & ":" & path.strip("/")
-        var
-            output: string
-            error: int
-        percy.execIn(
-            ExecHook as (
-                block:
-                    (output, error) = execCmdEx(fmt "git show {file}")
-            ),
-            this.cacheDir
-        )
-
-        if not error:
-            result = output
-
-    method exec(callback: proc(repository: self): void): void {. base .} =
-        percy.execIn(
-            ExecHook as (
-                block:
-                    callback(this)
-            ),
-            this.cacheDir
-        )
+                echo fmt "Fetched new references from {this.url}"
+                result = RUpdated
 
     method commits*(): HashSet[Commit] {. base .} =
         const
             tag  = "%(refname:short)"
             hash = "%(if:equals=tag)%(objecttype)%(then)%(*objectname)%(else)%(objectname)%(end)"
+        let
+            prefix = fmt "{percy.name}/"
         var
-            output: string
             error: int
+            output: string
 
         discard this.update()
 
-        percy.execIn(
-            ExecHook as (
-                block:
-                    error = percy.execCmdEx(output, @[
-                        fmt "git for-each-ref --format='{tag} {hash}'",
-                        fmt "'refs/tags/?*[0-9]*.*'",
-                        fmt "'refs/heads/*'"
-                    ])
-
-                    if error:
-                        raise newException(ValueError, fmt "failed getting tags for {this.url}")
-            ),
-            this.cacheDir
+        error = this.exec(
+            @[
+                fmt "git for-each-ref --omit-empty --format='{tag} {hash}'",
+                fmt "'refs/{percy.name}/?*[0-9]*.*'",
+                fmt "'refs/{percy.name}/*'"
+            ],
+            output
         )
 
-        for tag in output.split('\n'):
+        for reference in output.split('\n'):
             let
-                parts = tag.split(' ', 1)
+                parts = reference.split(' ', 1)
             if parts.len == 2:
-                if parts[0].contains('.'):
-                    result.incl(Commit(
-                        id: parts[1],
-                        repository: this,
-                        version: v(parts[0].replace(re"^[^0-9]*", ""))
-                    ))
-                else:
-                    result.incl(Commit(
-                        id: parts[1],
-                        repository: this,
-                        version: v("0.0.0-branch." & parts[0].replace(re"[!@#$%^&*+_.,]", "-"))
-                    ))
+                try:
+                    if parts[0].contains('.'):
+                        result.incl(Commit(
+                            id: parts[1],
+                            repository: this,
+                            version: v(parts[0].replace(re"^[^0-9]*", ""))
+                        ))
+                    else:
+                        result.incl(Commit(
+                            id: parts[1],
+                            repository: this,
+                            version: v(
+                                "0.0.0-branch." & (
+                                    parts[0][prefix.len..^1].replace(re"[!@#$%^&*+_.,/]", "-")
+                                )
+                            )
+                        ))
+                except:
+                    raise newException(
+                        ValueError,
+                        fmt "Failed loading reference '{reference}': {getCurrentExceptionMsg()}"
+                    )
+
+    method worktrees*(): Table[string, WorkTree] {. base .} =
+        var
+            error: int
+            worktrees: string
+
+        error = this.exec(
+            @[
+                fmt "git worktree prune"
+            ],
+            worktrees
+        )
+        if error:
+            raise newException(ValueError, "Could not prune worktree list")
+
+        error = this.exec(
+            @[
+                fmt "git worktree list --porcelain"
+            ],
+            worktrees
+        )
+        if error:
+            raise newException(ValueError, "Could not get worktree list")
+
+        for worktree in worktrees.strip().split("\n\n"):
+            let
+                lines = worktree.split('\n')
+            var
+                path: string = ""
+                head: string = ""
+
+            if lines[1] == "bare":
+                continue
+            if not lines[0].startsWith("worktree "):
+                continue
+
+            path = lines[0].split(' ')[1]
+
+            for line in lines:
+                if line.startsWith("HEAD "):
+                    head = line.split(' ')[1]
+
+            if path and head:
+                result[path] = WorkTree(
+                    repository: this,
+                    head: head,
+                    path: path
+                )
+
+    method listDir*(path: string, reference: string = "HEAD"): seq[string] {. base .} =
+        var
+            error: int
+            output: string
+
+        error = this.exec(
+            @[
+                fmt "git ls-tree --name-only {reference} --name-only :{path}"
+            ],
+            output
+        )
+
+        if not error:
+            result = output.strip().split('\n')
+
+    method readFile*(path: string, reference: string = "HEAD"): string {. base .} =
+        let
+            file = reference & ":" & path.strip("/")
+        var
+            error: int
+            output: string
+
+        error = this.exec(
+            @[
+                fmt "git show {file}"
+            ],
+            output
+        )
+
+        if not error:
+            result = output
+
+
+

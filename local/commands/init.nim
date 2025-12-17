@@ -12,13 +12,7 @@ begin InitCommand:
         let
             reset = console.getOpt("reset", "r")
 
-        if fileExists(this.config) and reset of false:
-            stdout.write fmt "Percy is already initialized in {this.config}."
-            stdout.write fmt " You can use set/unset commands to modify it"
-            stdout.write '\n'
-
-            result = -1
-        else:
+        if reset:
             this.settings.data.sources.clear()
             this.settings.data.packages.clear()
 
@@ -26,8 +20,11 @@ begin InitCommand:
             this.settings.data.sources["nim-lang"] = Source.init(
                 this.settings.getRepository("gh://nim-lang/packages")
             )
+        else:
+            if fileExists(this.config):
+                this.settings.index()
 
-            this.settings.save()
+        this.settings.save()
 
 shape InitCommand: @[
     Command(
