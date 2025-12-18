@@ -47,7 +47,7 @@ begin InitCommand:
                     bins = cfg["bin"].getElems()
                     srcDir = cfg["srcDir"].getStr()
                     binDir = cfg["binDir"].getStr()
-                    output = if binDir.len > 0: ("-o:" & binDir & "/") else: ""
+                    output = if binDir.len > 0: binDir & "/" else: "./"
 
                 for path in listFiles(if srcDir.len > 1: srcDir else: "./"):
                     if path.endsWith(".nim"):
@@ -56,7 +56,7 @@ begin InitCommand:
                         if bins.len == 0 or bins.contains(%target):
                             let
                                 cmd = @[
-                                    "nim " & output,
+                                    "nim -o:" & output,
                                     commandLineParams()[1..^1].join(" "),
                                     args.join(" "),
                                     "c " & path
