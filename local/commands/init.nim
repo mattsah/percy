@@ -64,7 +64,7 @@ begin InitCommand:
         let
             reset = console.getOpt("reset", "r")
 
-        if reset:
+        if not fileExists(this.settings.config) or reset:
             this.settings.data.sources.clear()
             this.settings.data.packages.clear()
 
