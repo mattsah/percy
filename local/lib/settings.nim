@@ -32,7 +32,7 @@ begin Settings:
                 if name.contains('/'):
                     result = name
                 else:
-                    result = "@global" / name
+                    result = "+global" / name
                 break;
 
     method getRepository*(reference: string): Repository {. base .} =
@@ -222,15 +222,24 @@ begin Settings:
                             updated = true
                         else:
                             discard
+
+        for name, package in this.data.packages:
+            case package.repository.clone():
+                of RCloneCreated:
+                    updated = true
+                of RCloneExists:
+                    case package.repository.update():
+                        of RUpdated:
+                            updated = true
+                        else:
+                            discard
+
         if reindex:
             removeFile(percy.target / "index." & this.config)
 
         if updated or not fileExists(percy.target / "index." & this.config):
             this.index()
 
-        for name, package in this.data.packages:
-            if package.repository.clone() == RCloneExists:
-                discard package.repository.update()
 
 shape Settings: @[
     Delegate(

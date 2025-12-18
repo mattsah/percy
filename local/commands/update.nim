@@ -9,6 +9,8 @@ begin UpdateCommand:
     method execute(console: Console): int =
         result = super.execute(console)
 
+        this.settings.prepare(true)
+
 shape UpdateCommand: @[
     Command(
         name: "update",
