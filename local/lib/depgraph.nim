@@ -219,17 +219,20 @@ begin DepGraph:
 
             for file in commit.repository.listDir("/", commit.id):
                 if file.endsWith(".nimble"):
-                    when debugging(2):
-                        echo repository.read(file, commit.id)
                     try:
-                        commit.info = parser.parseFile(
-                            commit.repository.readFile(file, commit.id)
-                        )
+                        let
+                            contents = commit.repository.readFile(file, commit.id)
+                        when debugging(3):
+                            echo fmt "Graph: Parsing nimble contents"
+                            echo fmt "  Repository: {commit.repository.url}"
+                            echo fmt "  Commit: {commit.version} ({commit.id})"
+                            echo indent(contents, 4)
+                        commit.info = parser.parseFile(contents)
                     except:
                         echo fmt "Graph: Failed parsing nimble file {file}"
-                        echo fmt " Repository: {commit.repository.url}"
-                        echo fmt " Commit: {commit.version} ({commit.id})"
-                        echo fmt " Error: {getCurrentExceptionMsg()}"
+                        echo fmt "  Repository: {commit.repository.url}"
+                        echo fmt "  Commit: {commit.version} ({commit.id})"
+                        echo fmt "  Error: {getCurrentExceptionMsg()}"
                         quit(1)
 
                     for requirement in commit.info.requires:
@@ -260,7 +263,6 @@ begin DepGraph:
             echo fmt "  Dependends On: {requirement.repository.url} @ {requirement.original}"
 
         this.addRepository(requirement.repository)
-        this.requirements[key].add(requirement)
 
         var
             toResolve = HashSet[Commit]()
@@ -285,6 +287,8 @@ begin DepGraph:
             for commit in this.commits[requirement.repository]:
                 if requirement.constraint.check(commit.version):
                     toResolve.incl(commit)
+
+        this.requirements[key].add(requirement)
 
         for commit in toResolve:
             if this.commits[commit.repository].contains(commit):

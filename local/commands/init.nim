@@ -32,17 +32,17 @@ begin InitCommand:
             # Internal commands
             #
 
-            var
-                cfg: JsonNode
-            let
-                (info, error) = gorgeEx("percy info -j")
-
-            if error > 0:
-                cfg = parseJson({cfg})
-            else:
-                cfg = parseJson(info)
-
             proc build(args: seq[string]): void =
+                var
+                    cfg: JsonNode
+                let
+                    (info, error) = gorgeEx("percy info -j")
+
+                if error > 0:
+                    cfg = parseJson({cfg})
+                else:
+                    cfg = parseJson(info)
+
                 let
                     bins = cfg["bin"].getElems()
                     srcDir = cfg["srcDir"].getStr()

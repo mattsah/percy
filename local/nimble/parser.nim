@@ -22,7 +22,7 @@ proc parseFile*(source: string, map: var string): NimbleFileInfo =
                 "license", "backend", "binDir", "srcDir"
             ],
             "arrays": @[
-                "bin", "paths", "bin"
+                "bin", "paths"
             ],
             "objects": @[
                 "namedBin"
