@@ -23,11 +23,6 @@ begin InstallCommand:
         if isSome(results.solution):
             checkouts = this.loadSolution(results.solution.get())
 
-        # Build the dep graph and resolve
-        # for each resolved hash
-        # git worktree add -d <location> <hash>
-
-
 shape InstallCommand: @[
     Command(
         name: "install",
