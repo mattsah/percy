@@ -17,6 +17,9 @@ begin InitCommand:
         )
 
     method getTasks(): string {. base .} =
+        let
+            cfg = "\"\"\"{\"bin\": \"\", \"srcDir\": \"\", \"binDir\": \"\"}\"\"\""
+
         result = dedent(
             fmt """
             # <{percy.name}>
@@ -35,7 +38,7 @@ begin InitCommand:
                 (info, error) = gorgeEx("percy info -j")
 
             if error > 0:
-                cfg = parseJson("""{"bin":"","srcDir":"","binDir":""""")
+                cfg = parseJson({cfg})
             else:
                 cfg = parseJson(info)
 
