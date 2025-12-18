@@ -9,14 +9,11 @@
 --path:"./vendor"
 
 # <percy>
-
 when withDir(thisDir(), system.fileExists("vendor/percy.paths")):
     include "vendor/percy.paths"
-
 # </percy>
 
 # <percy>
-
 import
     std/os,
     std/strutils
@@ -47,5 +44,4 @@ task build, "Build the application (whatever it's called)":
         build(@["--debugger:native", "--stacktrace:on", "--linetrace:on", "--checks:on"])
     else:
         build(@["--stacktrace:on", "--linetrace:on", "--checks:on"])
-
 # </percy>

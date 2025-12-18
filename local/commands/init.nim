@@ -10,10 +10,8 @@ begin InitCommand:
         result = dedent(
             fmt """
             # <{percy.name}>
-
             when withDir(thisDir(), system.fileExists("vendor/{percy.name}.paths")):
                 include "vendor/{percy.name}.paths"
-
             # </{percy.name}>
             """
         )
@@ -21,6 +19,7 @@ begin InitCommand:
     method getTasks(): string {. base .} =
         result = dedent(
             fmt """
+            # <{percy.name}>
             import
                 std/os,
                 std/strutils
@@ -51,6 +50,7 @@ begin InitCommand:
                     build(@["--debugger:native", "--stacktrace:on", "--linetrace:on", "--checks:on"])
                 else:
                     build(@["--stacktrace:on", "--linetrace:on", "--checks:on"])
+            # </{percy.name}>
             """
         )
 
