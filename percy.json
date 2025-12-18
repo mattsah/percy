@@ -5,6 +5,6 @@
   },
   "packages": {
     "mininim_core": "gh://primd-cooperative/mininim-core.git",
-    "mininim/cli": "gh://primd-cooperative/mininim-cli"
+    "mininim_cli": "gh://primd-cooperative/mininim-cli"
   }
 }

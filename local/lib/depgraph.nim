@@ -26,7 +26,6 @@ type
     DepGraph* = ref object of Class
         quiet: bool
         commits: OrderedTable[Repository, HashSet[Commit]]
-        tracking: OrderedTable[Repository, seq[Requirement]]
         requirements: Table[(Repository, Version), seq[Requirement]]
         settings: Settings
 
@@ -78,7 +77,7 @@ begin DepGraph:
     #[
     ##
     ]#
-    method addRequirement*(commit: Commit, requirement: Requirement): void {. base .}
+    method addRequirement*(commit: Commit, requirement: Requirement, depth: int): void {. base .}
 
     #[
     ##
@@ -207,7 +206,7 @@ begin DepGraph:
     #[
     ##
     ]#
-    method resolve*(commit: Commit): void {. base .} =
+    method resolve*(commit: Commit, depth: int): void {. base .} =
         let
             key = (commit.repository, commit.version)
 
@@ -224,7 +223,7 @@ begin DepGraph:
                         echo repository.read(file, commit.id)
                     commit.info = parser.parseFile(commit.repository.readFile(file, commit.id))
                     for requirement in commit.info.requires:
-                        this.addRequirement(commit, this.parseRequirement(requirement))
+                        this.addRequirement(commit, this.parseRequirement(requirement), depth + 1)
                     break
 
     #[
@@ -241,12 +240,9 @@ begin DepGraph:
     #[
     ##
     ]#
-    method addRequirement*(commit: Commit, requirement: Requirement): void {. base .} =
+    method addRequirement*(commit: Commit, requirement: Requirement, depth: int): void {. base .} =
         let
             key = (commit.repository, commit.version)
-        var
-            toRemove = HashSet[Commit]()
-            toResolve = HashSet[Commit]()
 
         if not this.quiet:
             echo fmt "Graph: Adding Requirement"
@@ -254,49 +250,41 @@ begin DepGraph:
             echo fmt "  Dependends On: {requirement.repository.url} @ {requirement.original}"
 
         this.addRepository(requirement.repository)
+        this.requirements[key].add(requirement)
 
-        if not this.tracking.hasKey(requirement.repository):
-            this.tracking[requirement.repository] = newSeq[Requirement]()
+        var
+            toResolve = HashSet[Commit]()
+
+        if depth == 0:
+            var
+                toRemove = HashSet[Commit]()
 
             for commit in this.commits[requirement.repository]:
                 if not requirement.constraint.check(commit.version):
                     toRemove.incl(commit)
                 else:
                     toResolve.incl(commit)
+
+            for commit in toRemove:
+                if not this.quiet:
+                    echo fmt "Graph: Excluding Commit (Not Usable At Top-Level)"
+                    echo fmt "  Repository: {commit.repository.url}"
+                    echo fmt "  Version: {commit.version}"
+                this.commits[commit.repository].excl(commit)
         else:
             for commit in this.commits[requirement.repository]:
-                var
-                    usable = false
-
-                for requirement in this.tracking[commit.repository]:
-                    if requirement.constraint.check(commit.version):
-                        usable = true
-                        break
-
-                if not usable:
-                    toRemove.incl(commit)
-                else:
+                if requirement.constraint.check(commit.version):
                     toResolve.incl(commit)
-
-        this.tracking[requirement.repository].add(requirement)
-
-        for commit in toRemove:
-            if not this.quiet:
-                echo fmt "Graph: Excluding Commit (Not a Usable Version)"
-                echo fmt "  Repository: {commit.repository.url}"
-                echo fmt "  Version: {commit.version}"
-            this.commits[commit.repository].excl(commit)
 
         for commit in toResolve:
             if this.commits[commit.repository].contains(commit):
-                this.resolve(commit)
+                this.resolve(commit, depth)
             else:
                 if not this.quiet:
                     echo fmt "Graph: Skipping Resolution (Already Removed)"
                     echo fmt "  Repository: {commit.repository.url}"
                     echo fmt "  Version: {commit.version}"
 
-        this.requirements[key].add(requirement)
 
     #[
     ##
@@ -309,7 +297,7 @@ begin DepGraph:
         this.requirements[(commit.repository, commit.version)] = newSeq[Requirement]()
 
         for requirement in nimbleInfo.requires:
-            this.addRequirement(commit, this.parseRequirement(requirement))
+            this.addRequirement(commit, this.parseRequirement(requirement), 0)
 
         #
         # Determine sorting possibly by arguments to build, for now we'll just sort by least to
