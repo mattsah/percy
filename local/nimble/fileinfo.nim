@@ -21,5 +21,3 @@ type NimbleFileInfo* = object
 
     # TODO
     features*: Table[string, seq[string]]
-    beforeHooks*: seq[string]
-    afterHooks*: seq[string]

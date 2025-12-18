@@ -12,23 +12,27 @@ begin HookCommand:
         let
             hook = "hooks" / console.getArg("name")
         var
+            file: string
             error: int
 
         this.settings.prepare()
 
-        if fileExists(hook & ".nims"):
-            error = execCmd("nim r --hints:off " & hook & ".nims")
+        if not hook.endsWith(".nims"):
+            file = hook & ".nims"
+
+        if fileExists(file):
+            error = execCmd(fmt "nim r --hints:off {file}")
         elif dirExists(hook):
             for file in walkDir(hook):
                 if file.path.endsWith(".nims"):
-                    error = execCmd("nim r " & file.path)
+                    error = execCmd(fmt "nim r {file.path}")
         else:
             echo "No hook(s) found"
 
 shape HookCommand: @[
     Command(
         name: "hook",
-        description: "Remove a package from your project's dependencies",
+        description: "Execute a hook from the `hooks` folder",
         opts: @[
             CommandConfigOpt,
             CommandVerboseOpt,
@@ -36,7 +40,7 @@ shape HookCommand: @[
         args: @[
             Arg(
                 name: "name",
-                description: "The name of the hook in the hooks dir",
+                description: "The name of the hook in the `hooks` folder (just a relative path)",
                 require: true
             )
         ]

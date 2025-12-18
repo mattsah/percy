@@ -22,21 +22,38 @@ begin InitCommand:
             # <{percy.name}>
             import
                 std/os,
+                std/json,
                 std/strutils
 
             #
             # Internal commands
             #
 
+            let
+                (info, _) = gorgeEx("percy info -j")
+                nimbleInfo = parseJson(info)
+
             proc build(args: seq[string]): void =
-                for path in listFiles("./"):
+                let
+                    bin = nimbleInfo["bin"].getElems()
+                    srcDir = nimbleInfo["srcDir"].getStr()
+                    binDir = nimbleInfo["binDir"].getStr()
+                    output = if binDir.len > 0: ("-o:" & binDir & "/") else: ""
+
+                for path in listFiles(if srcDir.len > 1: srcDir else: "./"):
                     if path.endsWith(".nim"):
-                        exec @[
-                            "nim -o:bin/" & splitFile(path).name,
-                            commandLineParams()[1..^1].join(" "),
-                            args.join(" "),
-                            "c " & path
-                        ].join(" ")
+                        let
+                            target = path[path.find('/')+1..^5]
+                        if bin.len == 0 or bin.contains(%target):
+                            let
+                                cmd = @[
+                                    "nim " & output,
+                                    commandLineParams()[1..^1].join(" "),
+                                    args.join(" "),
+                                    "c " & path
+                                ].join(" ")
+                            echo "Executing: " & cmd
+                            exec cmd
 
             # Tasks
 
