@@ -1,21 +1,51 @@
 # Percy
-## Sick and tired of terrible package managers for Nim?
+Are you sick and tired of terrible package managers for Nim?
 
-Percy (short for Perseus, _the greek hero that turned Atlas into stone_) is a different approach to package management for Nim.  Unlike others, it doesn't use package names (at least not in the traditional sense).  Instead, it relies solely on URLs for all package resolution.  In fact, you can name your packages almost whatever you like.
+Percy is a different approach to package management for Nim.  Short for Perseus, _**the greek hero that turned Atlas into stone**_, Percy came out frustrations with both `nimble` and `atlas`, neither of which do particularly well in early stages of dynamic development or seemingly with fast moving HEADs.
 
-Don't worry though, your existing packages are safe with Percy.  In fact, Percy make it even easier for you to manage your own package sources by creating your very own package repository with no "special treatment" compared to any other.
+The goal of Percy is to actually make package management for nim that "just works."  Performance is a secondary concern, although it still aims to be fast.  Additional key goals are:
 
-> NOTE: Percy isn't actually completed yet.  If you want to play around you can clone this repo and install it with `atlas`
+- Make adding custom/private package repositories easy and central
+- Abandon package names for everything other than local working copies (in `vendor`), fulfilling the promise that everything is _actually_ a URL.
+- Use a hybrid cached/centralized storage approach, with git work trees for local working copies.
+
+## Limitations
+
+- Only works with `git` (no `hg`) packages/repositories
+- Assumed `git` is in your path and is a fairly recent version (at least having worktree support)
+- Dependency solver is work in progress (currently doesn't actually validate a solution) and just effectively uses highest versions.
+- Nim >= 2.2.6
+
+## Getting Started
+
+Percy aims to work with official nim packages and the use of existing `.nimble` files.  In fact, unlike some other solutions, there's no intention of getting rid of the `.nimble` file at all, rather just limiting it's use/purpose.  
+
+> Keeping **the limitations above** in mind, we're asking people to test other initial aspects of Percy by:
 >
-> ```bash
-> git clone https://github.com/mattsah/percy
-> cd percy
-> atlas install
-> nim build
-> bin/percy <commands>
-> ```
+> - Installing it
+> - Trying to install project dependencies with it
+> - Perhaps trying to build off the result
 
-## Basic Usage
+### Installation
+
+Although Percy is currently self-hosting (i.e. can manage its own dependencies and build itself), chances are you don't have it installed and there are no binary distributed files yet, so, ironically, you need to use Atlas:
+
+```bash
+git clone https://github.com/mattsah/percy
+cd percy
+atlas install
+nim build
+```
+
+Assuming it built fine:
+
+```bash
+cp bin/percy <somewhere in your path>
+```
+
+### Usage
+
+#### Initialization
 
 You can initialize Percy rather easily.  Simply execute the following in your project directory:
 
@@ -23,7 +53,81 @@ You can initialize Percy rather easily.  Simply execute the following in your pr
 percy init
 ```
 
-Once initialized, you'll see a new file called `percy.json` in your project root.  It should look something like this:
+The `init` command will add something like the following to your `config.nims` file:
+
+```nim
+# <percy>
+when withDir(thisDir(), system.fileExists("vendor/percy.paths")):
+    include "vendor/percy.paths"
+# </percy>
+```
+
+If you want to make use of Percy's build/test tasks you can **alternatively** run the following:
+
+```
+percy init -w
+```
+
+> **NOTE:** this will add an more extensive and opinionated code to your `config.nims` to enable the use of the following commands:
+>
+> - `nim build`
+> - `nim test`
+
+If you want to know what gets added take a look [here](https://github.com/mattsah/percy/blob/master/local/commands/init.nim) at the `gettasks()` method.  It may not work for your build requirements, so you should **check first** to make sure.
+
+##### The `percy.json` file
+
+Once your project is initialized, you should have a `percy.json` file in the root of the project.  This file tracks package sources and provides a placeholder for some meta information.  To add more packages, see the section below on [adding packages](#adding-packages).
+
+##### The `vendor` directory
+
+In addition to the `percy.json` file, initialization should have created a `vendor` directory along with a file called `index.percy.json`.  This file contains a list of the resolved URLs for all packages available with your current configuration.
+
+#### Installation
+
+To install your dependencies you run:
+
+```bash
+percy install
+```
+
+Or, as is definitely suggested for first-use and testing:
+
+```bash
+percy install -v
+```
+
+The `-v` option will give a lot of output as dependencies are collected and the graph is built.  Without it, you'll only see the messages coming from select git commands.  At the end of an install with `-v` you should get report such as:
+
+```
+Graph: Graph Completed With Usable Versions
+  https://github.com/nim-lang/Nim:
+    2.2.6
+  https://github.com/nim-lang/checksums:
+    0.2.1
+  https://github.com/primd-cooperative/mininim-core:
+    0.0.0-branch.main
+    0.0.1
+  https://github.com/primd-cooperative/mininim-cli:
+    0.0.0-branch.main
+    0.0.1
+  https://github.com/euantorano/semver.nim:
+    1.2.3
+    1.2.2
+    1.2.1
+    1.2.0
+```
+
+This report shows usable versions which have not been excluded by top-level project requirements and is prior to solving (which again doesn't actually really solve anything right now).
+
+#### Adding Packages
+
+You can add packages in two distinct ways.
+
+- **Sources** are entire package repositories, such as the official nim packages repository.
+- **Packages** are one off packages which can point to an arbitrary git URL.
+
+Upon initialization, your `percy.json` file will only contain the official Nim packages repository:
 
 ```json
 {
@@ -35,228 +139,90 @@ Once initialized, you'll see a new file called `percy.json` in your project root
 }
 ```
 
-#### Sources and Packages
+##### Sources
 
-- Sources are package repositories, by default `percy init` will create an empty file with the default Nim repository URL in the sources.  This should give you general compatibility with `nimble` and `atlas`
-- Packages are individual package overloads.
-
-_In both cases_ the URLs should always bit to a git repository.
-
-If you're adding a new source, the git repository needs only to contain a `packages.json` file with the same structure as that found at https://github.com/nim-lang/packages/blob/master/packages.json.
-
-Packages will need to contain a `.nimble` file.  Although the name of the file is irrelevant to Percy, if you want broader compatibility with other package managers, you'll probably want to conform to those standards.
-
-##### Setting New URLs
-
-To set a source URL you can use the `percy set` command, for example:
+You can add a source via:
 
 ```bash
-percy set source company-packages gh://organization/repository
+percy set source <name> <url>
 ```
 
-Same for adding or overloading a package:
+The `<url>` must point to a git repository containing a `packages.json` file in its root that is schema-compatible with the one found in `nim-lang/packages`.  Note, however, the only two required fields are `name` and `url` .  As an example, let's take a look at the [Mininim](https://github.com/primd-cooperative/mininim) framework's package repository's file, located [here](https://github.com/primd-cooperative/mininim-packages/blob/main/packages.json).  Note it only the two fields are added:
+
+```json
+[
+	{
+        "name": "mininim_core",
+        "url": "https://github.com/primd-cooperative/mininim-core"
+    },
+    ...
+]
+```
+
+To add this repository to your own Percy configuration, you would execute:
 
 ```bash
-percy set package my-package gh://username/repository
+percy set source mininim gh://primd-cooperative/mininim-packages
 ```
 
-#### Installing Dependencies
-
-Once your sources and packages are setup as needed (for most people this will be no changes at all), you can go ahead and install your dependencies with:
+If you wanted to remove it:
 
 ```bash
-percy install
+percy unset source mininim
 ```
 
-> NOTE: For installation to work you need to have `git` installed and have it in your path.  We assume that's normal.
+> Note:  The example above to add the mininim repository uses `gh://` forge-style URLs.  You are **not** required to use this style of URL, and standard `https://` or even `git@` URLs should be viable, although in our experience `https://` is significantly faster than git over SSH.
 
-That will look something like the following:
+##### Packages
+
+Adding individual packages is also possible via the `set` command.  The only distinction here is that instead of pointing at a repository that contains a `packages.json` file, you're pointing at the repository for the package itself.
 
 ```bash
-$ bin/percy install
-Downloading https://github.com/nim-lang/packages into central caching
-Cloning into bare repository '58cdf17aab6671c59764f4a3ff6a0af7761348fa'...
-remote: Enumerating objects: 9906, done.
-remote: Counting objects: 100% (115/115), done.
-remote: Compressing objects: 100% (42/42), done.
-remote: Total 9906 (delta 102), reused 73 (delta 73), pack-reused 9791 (from 3)
-Receiving objects: 100% (9906/9906), 4.38 MiB | 14.18 MiB/s, done.
-Resolving deltas: 100% (5903/5903), done.
-Downloading https://github.com/primd-cooperative/mininim-core into central caching
-Cloning into bare repository 'dffaa9eeb5d21824761ec5397bc9d12298ba390a'...
-remote: Enumerating objects: 29, done.
-remote: Counting objects: 100% (27/27), done.
-remote: Compressing objects: 100% (18/18), done.
-remote: Total 29 (delta 9), reused 26 (delta 8), pack-reused 2 (from 1)
-Receiving objects: 100% (29/29), 17.89 KiB | 678.00 KiB/s, done.
-Resolving deltas: 100% (9/9), done.
-Downloading https://github.com/primd-cooperative/mininim-cli into central caching
-Cloning into bare repository '9533c07d6844b33bcf591287ded1f4f0e58ab290'...
-remote: Enumerating objects: 30, done.
-remote: Counting objects: 100% (19/19), done.
-remote: Compressing objects: 100% (10/10), done.
-remote: Total 30 (delta 7.
+percy set package neo https://github.com/xTrayambak/neo.git
 ```
 
-You may have noticed in the above that the repository is also being downloaded into the cache.  Indeed, both your source and your packages are dependencies.
+> **NOTE:**  When packages added via the `set package` command or as part of a source repository added with `set source` have a conflicting name, the latter defined URL is _always used_ and with package URLs overwriting URLs provided by source repositories.
 
-When the installation is complete, you should have a new `vendor` directory with an `index.percy.json` file in it.  This file contains a list of all the available packages mapped to their URLs based on your sources and package overloads.
+In the example above, `neo` would now refer to to the URL provided in the example, instead of the one defined in the nim official repository.  The recommended approach is to retain the nim official repository as your first source, add sources after which constitute private repositories and/or overloads to the official, while using package entries to resolve any conflicts.  Also **stop** using short package names.
 
-> NOTE: Actual dependency resolution is not complete yet, what follows is what **will** happen.
+##### Additional Notes on Naming Packages
 
-Based on your project's `.nimble` file and all the other `.nimble` files for its recursive dependencies, you'll also see a collection of folders in there representing your actual project dependencies, e.g.:
-
-```
-vendor
-├── mininim-cli
-├── mininim-core
-└── index.percy.json
-```
-
-This will also update your `nim.cfg` file with something similar to what other package manager do:
-
-```nim
-############# begin percy config section ##########
---noNimblePath
---path:"vendor/mininim-core/src"
---path:"vendor/mininim-cli/src"
-############# end percy config section   ##########
-```
-
-##### Package Resolution and Path Rules
-
-As we've already mentioned, Percy doesn't actually use or care about the package names (or versions) as defined by the `.nimble` files in your project's dependencies.  It does, however, still use the `.nimble` file for:
-
-1. Downstream / recursive dependencies
-2. Information about the `srcDir` for creating the paths.
-
-Instead, the names come from reverse mapping the URL to the sources and packages you've provided.  In the case.  If you're using URLs directly, it will use the path information from the URL, for example if your `.nimble` file contained the following:
-
-```bash
-requires https://github.com/foobar/amazing-nim >= 1.0
-requires https://github.com/euantorano/semver.nim >= 1.2.3
-```
-
-Then you would have the following:
-
-```
-vendor
-├── euantorano
-│  └── semver.nim
-├── foobar
-│  └── amazing-nim
-└── index.percy.json
-```
-
-And your `nim.cfg` might look something like the following:
-
-```nim
-############# begin percy config section ##########
---noNimblePath
---path:"vendor/euantorano/semver.nim/src"
---path:"vendor/foobar/amazing-nim"
-############# end percy config section   ##########
-```
-
-In fact, if you add a package with a `/` in the alias or if your source repositories contain such names, it will also create this structure, e.g.:
+Because of the way Percy resolves package names (and because they no longer need to be valid identifiers in Nim), you can actually have packages with any name.  It should be noted, however, that if you do this, adding named packages to your `.nimble` files will obviously break any compatibility with other package manager.  For example it is completely possible to do the following:
 
 ```bash
 percy set package mininim/core gh://primd-cooperative/mininim-core
 ```
 
-Would result in:
+> **NOTE:** The package name contains a slash (`/`)
+
+It is then possible to define in a nimble file:
+
+```nim
+requires "mininim/core"
+```
+
+In fact, package names with Percy can pretty much contain any character except those required by version constraints, e.g `=`, `<`, `>`, `~`, `^` and `#`.
+
+In the event you **use a slash**, you will additionally notice that your packages will appear in your `vendor` directory as a sub-directory structure.  Indeed, it should be further noted that **if you have non-named URL-based requirements those will be installed to vendor based on the "path" component of their URL**, thereby avoiding potential conflicts.
+
+All non-namespaced packages (official packages and non-slash named packages) will be installed into `vendor/+global`.
+
+Using our previous example of `neo`, were we to require the URL directly in our `.nimble` file, then instead of being instead of overloading the name, it would be located in `vendor/xTrayambak/neo`.  Allowing for both the official `neo` package and that one to be installed:
 
 ```
 vendor
-├── mininim
-│  └── core
-└── index.percy.json
-```
-
-_In short_, your package names are no longer tied to committed configs and code.  The only real restrictions are characters reserved for indicating versions, such as: `#`,  `>`,  `<`, `~`, `^`, and `=`.
-
-###### Conflicting Names and URLs
-
-When the same name is found in two sources and/or within your package overloads, the last to define it always wins with your package overloads being the highest.  It's important to note, however, there is no actual name to URL mapping in the traditional sense.  Let's assume the following case.
-
-1. You have two distinct `sources` defined.
-2. Both sources contain a package called `neo`
-   1. One source maps `neo` to `https://github.com/andreaferretti/neo`
-   2. The second maps `neo` to `https://github.com/xTrayambak/neo`
-
-When executing `percy install` any `.nimble` files containing simply the name `neo` will use the latter URL.  If you need packages from the second to specifically overload other packages in the first, but still want the first instance of `neo`, simply do:
-
-```bash
-percy set package neo https://github.com/andreaferretti/neo
-percy update
-```
-
-This is similar to Atlas's `pkgOverrides`, but because Percy actually uses URLs internally, it's far less likely to be needed.
-
-If one of the downstream packages is using the second `neo` from by depending directly on the URL, no conflict will occur as your resulting vendor directory will look like this:
-
-```
-vendor
-├── neo
+├── +global
+│  └── neo
 ├── xTrayambak
 │  └── neo
 └── index.percy.json
 ```
 
-Of course, this _cannot_ and will not prevent actual potential module name conflicts.  That is to say, both search paths will be included in the your `nim.cfg`, so if each of them has a `neo.nim` file at the root of their source path and you `import neo` you may still be up shit's creek.
 
-#### Requiring Dependencies
 
-The `percy.json` file only contains information about where to find packages by name (either through a source repository or your package overloads).  This is not the same as requiring the package itself, which need to modify the `.nimble` file and add it.  To actually require the dependency from the sources and packages you have available you would perform something like the following:
+## More to Come
 
-```bash
-percy require semver '>=1.2.3'
-```
-
-This will modify your `.nimble` file to add or update the appropriate line such as:
-
-```nim
-requires "semver >= 1.2.3"
-```
-
-Similarly you can require URLs directly:
-
-```bash
-percy requires https://github.com/euantorano/semver.nim ">=1.2.3"
-```
-
-#### Removing Dependencies
-
-To remove a dependency you would simply run:
-
-```bash
-percy remove semver
-```
-
-Or
-
-```bash
-percy remove https://github.com/euantorano/semver.nim
-```
-
-> Note: if you required a package based using a name, you can still remove it via the URL, and vice-versa if the URL maps to a name in your sources or package overloads.
-
-This however, will not remove the corresponding source/package availability information from your `percy.json`, to do that you need to use `percy unset`:
-
-```bash
-percy unset package semver
-```
-
-If `semver` is part of a source repository, this will have no effect, but you can remove an entire repository:
-
-```bash
-percy unset source nim-lang
-```
-
-#### Building / Tasks / Etc
-
-Percy does not aim to replace your build / installation system.  As a package manager, it is focused on gracefully handling packages and solving the madness therein.  In all the examples above we use `nim.cfg` based path configuration as `nim` itself also supports tasks via `config.nims`.  Flags and/or autodetection may be added to see whether or not `--path` entries should be added to `nim.cfg` or `nimble.paths`, but nothing has been decided yet.
-
-While Percy intends to continue using `.nimble` files for the foreseeable future, it's not really intended to be mixed with other package managers.
-
-If you're curious to see how we build with `nim build`, check out [the config.nims file](./config.nims)
+- Require
+- Remove
+- Update
+- Hooks
