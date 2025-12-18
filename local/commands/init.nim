@@ -29,22 +29,28 @@ begin InitCommand:
             # Internal commands
             #
 
+            var
+                cfg: JsonNode
             let
-                (info, _) = gorgeEx("percy info -j")
-                nimbleInfo = parseJson(info)
+                (info, error) = gorgeEx("percy info -j")
+
+            if error > 0:
+                cfg = parseJson("""{"bin":"","srcDir":"","binDir":""""")
+            else:
+                cfg = parseJson(info)
 
             proc build(args: seq[string]): void =
                 let
-                    bin = nimbleInfo["bin"].getElems()
-                    srcDir = nimbleInfo["srcDir"].getStr()
-                    binDir = nimbleInfo["binDir"].getStr()
+                    bins = cfg["bin"].getElems()
+                    srcDir = cfg["srcDir"].getStr()
+                    binDir = cfg["binDir"].getStr()
                     output = if binDir.len > 0: ("-o:" & binDir & "/") else: ""
 
                 for path in listFiles(if srcDir.len > 1: srcDir else: "./"):
                     if path.endsWith(".nim"):
                         let
                             target = path[path.find('/')+1..^5]
-                        if bin.len == 0 or bin.contains(%target):
+                        if bins.len == 0 or bins.contains(%target):
                             let
                                 cmd = @[
                                     "nim " & output,
