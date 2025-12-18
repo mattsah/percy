@@ -313,6 +313,9 @@ begin Repository:
             error: int
             output: string
 
+        when debugging(2):
+            echo fmt "Reading file {file} @ {this.url}"
+
         error = this.exec(
             @[
                 fmt "git show {file}"

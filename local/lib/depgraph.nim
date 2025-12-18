@@ -26,6 +26,7 @@ type
     DepGraph* = ref object of Class
         quiet: bool
         commits: OrderedTable[Repository, HashSet[Commit]]
+        tracking: OrderedTable[Repository, HashSet[Commit]]
         requirements: Table[(Repository, Version), seq[Requirement]]
         settings: Settings
 
@@ -198,7 +199,7 @@ begin DepGraph:
     method report*(): void {. base .} =
         echo "Graph: Graph Completed With Usable Versions"
 
-        for repository, commits in this.commits:
+        for repository, commits in this.tracking:
             echo fmt "  {repository.url}:"
             for commit in commits:
                 echo fmt "    {commit.version}"
@@ -210,10 +211,15 @@ begin DepGraph:
         let
             key = (commit.repository, commit.version)
 
+        if not this.tracking.hasKey(commit.repository):
+            this.tracking[commit.repository] = initHashSet[Commit]()
+
         if not this.requirements.hasKey(key):
             if not this.quiet:
                 echo fmt "Graph: Resolving Nimble File"
                 echo fmt "  Source: {commit.repository.url} @ {commit.version}"
+
+            this.tracking[commit.repository].incl(commit)
 
             this.requirements[key] = newSeq[Requirement]()
 
@@ -319,10 +325,10 @@ begin DepGraph:
         # to lowest on the commits themselves.
         #
 
-        this.commits = this.commits.pairs.toSeq().sortedByIt(it[1].len).toOrderedTable()
+        this.tracking = this.tracking.pairs.toSeq().sortedByIt(it[1].len).toOrderedTable()
 
-        for repository, commits in this.commits:
-            this.commits[repository] = commits.toSeq().sorted(cmp, Descending).toHashSet()
+        for repository, commits in this.tracking:
+            this.tracking[repository] = commits.toSeq().sorted(cmp, Descending).toHashSet()
 
 #[
 ##
@@ -351,7 +357,7 @@ begin Solver:
             # If all repositories have been assigned a version, we're done.
             #
 
-            if this.assignments.len == this.graph.commits.len:
+            if this.assignments.len == this.graph.tracking.len:
                 var
                     solution = newSeq[Commit]()
 
@@ -366,7 +372,7 @@ begin Solver:
             #
             # Make a decision
             #
-            for repository in this.graph.commits.keys:
+            for repository in this.graph.tracking.keys:
                 if this.assignments.hasKey(repository):
                     #
                     # We've already assigned this repository, just continue.  The assigmnet may
@@ -375,7 +381,7 @@ begin Solver:
                     #
                     continue
 
-                for commit in this.graph.commits[repository]:
+                for commit in this.graph.tracking[repository]:
                     var
                         consistentWithOtherAssignments = true
                     let
