@@ -221,7 +221,17 @@ begin DepGraph:
                 if file.endsWith(".nimble"):
                     when debugging(2):
                         echo repository.read(file, commit.id)
-                    commit.info = parser.parseFile(commit.repository.readFile(file, commit.id))
+                    try:
+                        commit.info = parser.parseFile(
+                            commit.repository.readFile(file, commit.id)
+                        )
+                    except:
+                        echo fmt "Graph: Failed parsing nimble file {file}"
+                        echo fmt " Repository: {commit.repository.url}"
+                        echo fmt " Commit: {commit.version} ({commit.id})"
+                        echo fmt " Error: {getCurrentExceptionMsg()}"
+                        quit(1)
+
                     for requirement in commit.info.requires:
                         this.addRequirement(commit, this.parseRequirement(requirement), depth + 1)
                     break

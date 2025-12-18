@@ -20,7 +20,7 @@ type
 
     Repository* = ref object of Class
         hash: Hash
-        dirty: bool
+        stale: bool
         shaHash: string
         cacheDir: string
         origin: string
@@ -97,7 +97,13 @@ begin Repository:
         this.shaHash = toLower($secureHash(this.url))
         this.cacheDir = percy.getAppCacheDir(this.shaHash)
         this.origin = url
-        this.dirty = true
+
+        let
+            head = this.cacheDir / "FETCH_HEAD"
+        if fileExists(head):
+            this.stale = getTime() > getLastModificationTime(head) + 5.minutes
+        else:
+            this.stale = true
 
     method url*(): string {. base .} =
         result = this.url
@@ -158,8 +164,8 @@ begin Repository:
 
         result = RUpdateSkip
 
-        if this.dirty:
-            this.dirty = false
+        if this.stale:
+            this.stale = false
 
             if not this.exists:
                 discard this.clone()
@@ -185,6 +191,9 @@ begin Repository:
             else:
                 echo fmt "Fetched new references from {this.url}"
                 result = RUpdated
+
+        setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
+
 
     method commits*(): HashSet[Commit] {. base .} =
         const
