@@ -192,7 +192,7 @@ begin Repository:
                 echo fmt "Fetched new references from {this.url}"
                 result = RUpdated
 
-        setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
+            setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
 
 
     method commits*(): HashSet[Commit] {. base .} =
