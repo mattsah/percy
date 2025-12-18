@@ -188,6 +188,7 @@ begin BaseGraphCommand:
                 relDir = this.settings.getName(commit.repository.url)
                 workDir = vendorDir / relDir
                 commitHash = commit.id
+
             if updateDirs.contains(workDir):
                 percy.execIn(
                     ExecHook as (
@@ -206,7 +207,7 @@ begin BaseGraphCommand:
             if commit.info.srcDir:
                 pathList.add(fmt """--path:"{percy.target / relDir / commit.info.srcDir}"""")
             else:
-                pathList.add(fmt """--path:"{workDir}"""")
+                pathList.add(fmt """--path:"{percy.target / relDir}"""")
 
         writeFile(fmt "vendor/{percy.name}.paths", pathList.join("\n"))
 
