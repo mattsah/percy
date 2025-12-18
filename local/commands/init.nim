@@ -21,8 +21,6 @@ begin InitCommand:
     method getTasks(): string {. base .} =
         result = dedent(
             fmt """
-            # <{percy.name}>
-
             import
                 std/os,
                 std/strutils
@@ -53,8 +51,6 @@ begin InitCommand:
                     build(@["--debugger:native", "--stacktrace:on", "--linetrace:on", "--checks:on"])
                 else:
                     build(@["--stacktrace:on", "--linetrace:on", "--checks:on"])
-
-            # </{percy.name}>
             """
         )
 
@@ -62,6 +58,7 @@ begin InitCommand:
         result = super.execute(console)
 
         var
+            nowrite = 0
             configIn: seq[string]
             configOut: seq[string]
         let
@@ -79,9 +76,6 @@ begin InitCommand:
         if fileExists("config.nims"):
             configIn = readFile("config.nims").split('\n')
 
-        var
-            nowrite = 0
-
         for line in configIn:
             if line == fmt "# <{percy.name}>":
                 inc nowrite
@@ -98,11 +92,11 @@ begin InitCommand:
         var
             config = ""
 
-        config = configOut.join("\n")
-        config = config & "\n" & this.getPaths().strip()
+        config = configOut.join("\n").strip()
+        config = config & "\n\n" & this.getPaths().strip()
 
         if console.getOpt("writeTasks", "w") of true:
-            config = config & "\n" & this.getTasks.strip()
+            config = config & "\n\n" & this.getTasks.strip()
 
         writeFile("config.nims", config)
 

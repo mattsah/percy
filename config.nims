@@ -14,6 +14,7 @@ when withDir(thisDir(), system.fileExists("vendor/percy.paths")):
     include "vendor/percy.paths"
 
 # </percy>
+
 # <percy>
 
 import
