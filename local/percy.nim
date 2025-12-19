@@ -19,11 +19,6 @@ type
     General Utilities (should always be used with percy.* prefix)
 ]#
 
-proc getNimbleInfo*(): NimbleFileInfo =
-    for file in walkFiles("*.nimble"):
-        return parser.parseFile(readFile(file))
-    raise newException(ValueError, "Could not find .nimble file")
-
 proc getLocalDir*(subdir: string = ""): string =
     when defined(linux):
         result = getHomeDir() / ".local" / "share" / percy.name / subdir

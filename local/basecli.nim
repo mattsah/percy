@@ -19,6 +19,7 @@ type
 
     BaseGraphCommand* = ref object of BaseCommand
         nimbleInfo*: NimbleFileInfo
+        nimbleMap*: string
         solver*: Solver
 
 let
@@ -45,10 +46,19 @@ begin BaseCommand:
 
 begin BaseGraphCommand:
     method execute*(console: Console): int =
-        result = super.execute(console)
+        var
+            foundNimble = false
 
-        this.nimbleInfo = percy.getNimbleInfo()
+        result = super.execute(console)
         this.solver = Solver.init()
+
+        for file in walkFiles("*.nimble"):
+            this.nimbleInfo = parser.parseFile(readFile(file), this.nimbleMap)
+            foundNimble = true
+            break
+
+        if not foundNimble:
+            raise newException(ValueError, "Could not find .nimble file")
 
     method getGraph*(quiet: bool = false): DepGraph {. base .} =
         let

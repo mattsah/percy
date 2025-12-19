@@ -10,8 +10,8 @@ type NimbleFileInfo* = object
     backend*: string
 
     # PM
-    requires*: seq[string]
     paths*: seq[string]
+    requires*: seq[seq[string]]
 
     # Build
     bin*: seq[string]

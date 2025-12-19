@@ -34,7 +34,8 @@ proc parseFile*(source: string, map: var string): NimbleFileInfo =
         mapped: HashSet[string]
         mapLines: seq[string]
         requires: seq[string]
-        requiring: string  = ""
+        requiring: string = ""
+        indenting: string = ""
         info: JsonNode = %NimbleFileInfo()
 
     proc parseEqString(line: string): JsonNode =
@@ -89,22 +90,27 @@ proc parseFile*(source: string, map: var string): NimbleFileInfo =
             found = false
 
         if requiring.len > 0:
-            if line.startsWith(' '):
+            if line.startsWith(indenting & ' '):
                 requiring = requiring & line
                 continue
             else:
                 requires.add(requiring)
                 requiring = ""
 
-        if line.match(re("""^requires\s*"""")):
+        if line.match(re("""^\s*requires\s*"""")):
+            indenting = ""
             requiring = line[line.find('"')..^1]
-            if requires.len == 0:
-                mapLines.add("{%requires%}")
+            for i in line:
+                if i == ' ':
+                    indenting.add(' ')
+                else:
+                    break
+            mapLines.add(indenting & "{%requires-" & $requires.len & "%}")
             continue
 
         for (kind, items) in params:
             for item in items:
-                if not mapped.contains(item) and line.match(re("^" & item & "\\s*=")):
+                if not mapped.contains(item) and line.match(re("^" & item & """\s*=""")):
                     try:
                         var
                             node: JsonNode
@@ -135,16 +141,18 @@ proc parseFile*(source: string, map: var string): NimbleFileInfo =
 
         mapLines.add(line)
 
-    try:
-        info["requires"] = parseJson("[" & requires.join(", ") & "]")
-    except:
-        raise newException(
-            ValueError,
-            "Failed parsing combined requirements: " & requires.join(", ")
-        )
+    map = mapLines.join("\n").strip()
+
+    for linereqs in requires:
+        try:
+            info["requires"].add(parseJson("[" & linereqs & "]"))
+        except:
+            raise newException(
+                ValueError,
+                "Failed parsing requirements: " & linereqs
+            )
 
     result = info.to(NimbleFileInfo)
-    map = mapLines.join("\n").strip()
 
     when defined debug:
         echo "Parsed Nimble file:"

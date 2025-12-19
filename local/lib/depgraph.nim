@@ -241,8 +241,9 @@ begin DepGraph:
                         echo fmt "  Error: {getCurrentExceptionMsg()}"
                         quit(1)
 
-                    for requirement in commit.info.requires:
-                        this.addRequirement(commit, this.parseRequirement(requirement), depth + 1)
+                    for requirements in commit.info.requires:
+                        for requirement in requirements:
+                            this.addRequirement(commit, this.parseRequirement(requirement), depth + 1)
                     break
 
     #[
@@ -316,8 +317,9 @@ begin DepGraph:
 
         this.requirements[(commit.repository, commit.version)] = newSeq[Requirement]()
 
-        for requirement in nimbleInfo.requires:
-            this.addRequirement(commit, this.parseRequirement(requirement), 0)
+        for requirements in nimbleInfo.requires:
+            for requirement in requirements:
+                this.addRequirement(commit, this.parseRequirement(requirement), 0)
 
         #
         # Determine sorting possibly by arguments to build, for now we'll just sort by least to

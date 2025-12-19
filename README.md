@@ -16,6 +16,13 @@ The goal of Percy is to actually make package management for nim that "just work
 - Dependency solver is work in progress (currently doesn't actually validate a solution) and just effectively uses highest versions.
 - Nim >= 2.2.6 (May actually work on earlier versions, but it's on you to custom build)
 
+## Skip To
+
+- [Nimble File Support](#nimble-file-support)
+- [Versioning](#versioning)
+
+... or see the next section for a more general introduction.
+
 ## Getting Started
 
 Percy aims to work with official nim packages and the use of existing `.nimble` files.  In fact, unlike some other solutions, there's no intention of getting rid of the `.nimble` file at all, rather just limiting its use/purpose.
@@ -228,7 +235,137 @@ vendor
 └── index.percy.json
 ```
 
+## Nimble File Support
 
+Percy uses a naive Nimble file parser and mapper which supports common fields that define project structure, e.g. `binDir`, `srcDir`, etc to enable the `nim build` task when initialized with `percy init -w`.  Main exceptions to this at this time is is the `namedBin` field and `paths`.
+
+> **NOTE**: For any line that Percy does not know how to interpret, it simply leaves it alone.
+
+### Requirements
+
+Additionally, it obviously supports the `requires` keyword.  In the case of conditional requires such as the following, Percy constructs a space sensitive map of the file to remember their positions:
+
+```nim
+when defined windows:
+    requires ...
+```
+
+It **should be noted**, however, that it does not take into account these conditions when determining which packages to install.  All requires will be used to determine the dependency graph, which means all dependencies may be installed irrespective of conditions.  Obviously whether or not they're used is up to your code.  While this may be sub-optimal, it's a good middle-ground solution whic:
+
+1. Does not necessitate more complex processing (or compiler based processing) of `.nimble` files
+2. Ensures your existing `.nimble` file is not wholly mangled when using `percy require` to add a dependency.
+
+There is still a question of how `percy remove` will be handled, but we will likely remove any matching `requires` and then scan for dangling conditions without a body and remove those.
+
+### Version Constraints
+
+Version constraints should be well supported along with the ability to add `|` to provide "or" operations, and `,` to provide "and" operations, for example:
+
+```nim
+requires "nim >=2.2.6 | >=2.2.0, <=2.2.4"
+```
+
+This is equivalent to:
+
+Nim version greater than or equal *[gte]* to 2.2.6 ** or ** **(** *[gte]* 2.2.0 **and** _*[lte]* 2.2.4 **)**, effectively skipping 2.2.5.  In short, constraints are first split by `|` creating a sequence of "or" constraints, then each constraint therein is split by `,` creating a sequence of "and" constraints.  Internally these are called "Any" and "All".  Although not actually the code, you can roughly imagine something like the following pseudo-Nim (hah, punny) code:
+
+```nim
+type
+	Constraint
+		package: string
+		condition: string
+	AllConstraint
+		items: seq[Constraint]
+	AnyConstraint
+		items: seq[AllConstraint]
+```
+
+Parenthesis to be more explicit are not yet supported though may be in the future with a `GroupConstraint` or something similar.  To understand more about what versions can actually look like and how they work, see the next section.
+
+## Versioning
+
+Versioning in Percy relies heavily on `semver` (https://github.com/euantorano/semver.nim).  There's some "alteration" and wrapping which is useful to understand because the library itself absolutely requires a `0.0.0`-style string.
+
+#### Incomplete Versions
+
+Versions which are incomplete will have `0`'s appended, e.g. `1.2` becomes `1.2.0` in Percy, however using a single number is not supported, e.g. `1` cannot become `1.0.0` because 1 is ambiguous and may be used in other parts.  Like if you tag something as:  `test-1`.  Accordingly, you should stick to at least 2 numbers for best results.
+
+#### Branch Support
+
+It's also possible to track a branch using a `#` style constraint:
+
+```nim
+requires "mypack#dev"
+```
+
+The logic for whether or not another version conflicts with a branch has yet to be determined, but when used at the top-level `.nimble` file this ensures the "usable" version of that package is tracked solely to the head of that branch in the remote repository.  Most likely resolution for logic is simply that a branch will yield no conflicts at all and will only be recommended for use at the top-level, which would enable, for example to add a development branch overload at the project level and have all other packages further down the tree simply accept it.
+
+Branches in Percy are identified with a version that looks like `0.0.0-branch.[branch]` where `[brance]` is the name of the branch with most non-alpha-dash symbols replaced with a dash.  This is predominantly due to constraints placed on the version parsing by the `semver` package.  There is no way to get a "newer version" for the branch or a lesser version.
+
+#### Build Support
+
+Versioned build tags like `1.0.0-alpha` and `1.0.0-alpha.1` should be supported, although the logic for these is deferred to `semver`.  It's not clear how that library deconstruction and compares the build portion of the version, though we would hope that `-alpha.1` would be less than `-alpha.2` and greater than `-alpha`, alone, for example.
+
+#### HEAD Support
+
+The remote HEAD (regardless of which branch it maps to) is always included in the total available commits as `0.0.0-HEAD` when versions are not otherwise defined.
+
+```nim
+requires "package"
+```
+
+Whether or not raises a conflict with other requirements and in what circumstances is currently undefined but will be clarified later.  Use at your own risk (although we know it's probably very common).
+
+#### Exclusion, Inclusion, and Precedence
+
+Although the solver for Percy is not currently completed, the graph that is passed to it orders "usable" versions in roughly this manner if the match basic exclusion/inclusion requirements which are as follows:
+
+1. All versions of a package which do not match top-level `.nimble` file `requires` constraints are excluded from the usable versions.
+2. Those remaining and all subsequent versions which match any constraint across the entire graph are included in the usable versions.
+
+The final usable versions takes on a form such as:
+
+```nim
+OrderedTable[Repository, OrderedSet[Commit]]
+```
+
+This is the `tracking` property on the `DepGraph` class and is what ultimately will be used by the solver to actually solve.  At the end of building the dependency graph, this tracking table is then ordered by the following logic (at present):
+
+```nim
+this.tracking = this.tracking.pairs.toSeq()
+    .sortedByIt(it[1].len)
+    .toOrderedTable()
+
+for repository, commits in this.tracking:
+    this.tracking[repository] = commits.toSeq()
+        .sorted(
+            proc (x, y: Commit): int {. closure .} =
+                let
+                    xIsBranch = x.version.build.startsWith("branch.")
+                    yIsbranch = y.version.build.startsWith("branch.")
+                if x.version.build == "HEAD":
+                    result = 1
+                elif y.version.build == "HEAD":
+                    result = -1
+                elif xIsBranch and yIsBranch:
+                    result = cmp(x.version.build, y.version.build)
+                elif xIsBranch:
+                    result = 1
+                elif yIsBranch:
+                    result = -1
+                else:
+                    result = cmp(x.version, y.version)
+            ,
+            Descending
+        )
+        .toOrderedSet()
+```
+
+This basically means that repositories are first sorted by the total number of "usable" versions, and then their "usable" versions are sorted as:
+
+1. HEAD
+2. Branches and other non-semver styled tags (Alphabetically)
+3. Version numbers and corresponding build/meta info (Per the `semver` package) for all semver styled tags.
 
 ## More to Come
 
