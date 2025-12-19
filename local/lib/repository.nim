@@ -198,7 +198,7 @@ begin Repository:
             setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
 
 
-    method commits*(): HashSet[Commit] {. base .} =
+    method commits*(): OrderedSet[Commit] {. base .} =
         const
             tag  = "%(refname:short)"
             hash = "%(if:equals=tag)%(objecttype)%(then)%(*objectname)%(else)%(objectname)%(end)"
@@ -207,6 +207,7 @@ begin Repository:
         var
             error: int
             output: string
+            head: string
 
         discard this.update()
 
@@ -219,27 +220,37 @@ begin Repository:
             output
         )
 
+        for line in readFile(this.cacheDir / "FETCH_HEAD").split("\n"):
+            if line.endsWith("\t\t" & this.url):
+                head = line[0..39]
+                break
+
+        output = fmt "HEAD {head}\n{output}"
+
         for reference in output.split('\n'):
             let
                 parts = reference.split(' ', 1)
+            var
+                version: Version
             if parts.len == 2:
                 try:
-                    if parts[0].contains('.'):
-                        result.incl(Commit(
-                            id: parts[1],
-                            repository: this,
-                            version: v(parts[0].replace(re"^[^0-9]*", ""))
-                        ))
+                    if parts[0] == "HEAD":
+                        version = v("0.0.0-HEAD")
+                    elif parts[0].match(re".*[0-9]+\.[0-9]+.*"):
+                        version = v(parts[0].replace(re"^[^0-9]*", ""))
                     else:
-                        result.incl(Commit(
-                            id: parts[1],
-                            repository: this,
-                            version: v(
+                        version = v(
                                 "0.0.0-branch." & (
                                     parts[0][prefix.len..^1].replace(re"[!@#$%^&*+_.,/]", "-")
                                 )
                             )
-                        ))
+
+                    result.incl(Commit(
+                        id: parts[1],
+                        repository: this,
+                        version: version
+                    ))
+
                 except:
                     raise newException(
                         ValueError,

@@ -25,8 +25,8 @@ type
 
     DepGraph* = ref object of Class
         quiet: bool
-        commits: OrderedTable[Repository, HashSet[Commit]]
-        tracking: OrderedTable[Repository, HashSet[Commit]]
+        commits: OrderedTable[Repository, OrderedSet[Commit]]
+        tracking: OrderedTable[Repository, OrderedSet[Commit]]
         requirements: Table[(Repository, Version), seq[Requirement]]
         settings: Settings
 
@@ -169,7 +169,7 @@ begin DepGraph:
             repository = this.settings.getRepository(parts[0].strip())
             constraint = Constraint(check: ConstraintHook as (
                 block:
-                    return true
+                    result = true
             ))
 
         if parts.len > 1:
@@ -212,7 +212,7 @@ begin DepGraph:
             key = (commit.repository, commit.version)
 
         if not this.tracking.hasKey(commit.repository):
-            this.tracking[commit.repository] = initHashSet[Commit]()
+            this.tracking[commit.repository] = initOrderedSet[Commit]()
 
         if not this.requirements.hasKey(key):
             if not this.quiet:
@@ -325,10 +325,33 @@ begin DepGraph:
         # to lowest on the commits themselves.
         #
 
-        this.tracking = this.tracking.pairs.toSeq().sortedByIt(it[1].len).toOrderedTable()
+        this.tracking = this.tracking.pairs.toSeq()
+            .sortedByIt(it[1].len)
+            .toOrderedTable()
 
         for repository, commits in this.tracking:
-            this.tracking[repository] = commits.toSeq().sorted(cmp, Descending).toHashSet()
+            this.tracking[repository] = commits.toSeq()
+                .sorted(
+                    proc (x, y: Commit): int {. closure .} =
+                        let
+                            xIsBranch = x.version.build.startsWith("branch.")
+                            yIsbranch = y.version.build.startsWith("branch.")
+                        if x.version.build == "HEAD":
+                            result = 1
+                        elif y.version.build == "HEAD":
+                            result = -1
+                        elif xIsBranch and yIsBranch:
+                            result = cmp(x.version.build, y.version.build)
+                        elif xIsBranch:
+                            result = 1
+                        elif yIsBranch:
+                            result = -1
+                        else:
+                            result = cmp(x.version, y.version)
+                    ,
+                    Descending
+                )
+                .toOrderedSet()
 
 #[
 ##
