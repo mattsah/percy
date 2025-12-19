@@ -85,10 +85,12 @@ If you want to make use of Percy's build/test tasks you can **alternatively** ru
 percy init -w
 ```
 
-> **NOTE:** this will add an more extensive and opinionated code to your `config.nims` to enable the use of the following commands:
+> **WARNING:** this will add an more extensive and opinionated code to your `config.nims` to enable the use of the following commands:
 >
 > - `nim build`
 > - `nim test`
+>
+> It will also **delete all existing tasks**
 
 If you want to know what gets added take a look [here](https://github.com/mattsah/percy/blob/master/local/commands/init.nim) at the `gettasks()` method.  It may not work for your build requirements, so you should **check first** to make sure.
 

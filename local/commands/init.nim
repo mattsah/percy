@@ -93,13 +93,14 @@ begin InitCommand:
         var
             error: int
             target = console.getArg("target")
+            inBlock = false
 
         if repo:
             let
                 repository = Repository.init(repo)
 
             if not target:
-                target = repository.url[repository.url.rfind('/')..^1]
+                target = repository.url[repository.url.rfind('/')+1..^1]
                 if target.endsWith(".git"):
                     target = target[0..^5]
 
@@ -131,13 +132,20 @@ begin InitCommand:
             configIn = readFile("config.nims").split('\n')
 
         for line in configIn:
-            if line == fmt "# <{percy.name}>":
+            if inBlock and line.len > 0 and line[0] != ' ':
+                inBlock = false
+                dec nowrite
+            if not inBlock and reset:
+                if line.startsWith("task "):
+                    inBlock = true
+                    inc nowrite
+                    continue
+            if not inBlock and line == fmt "# <{percy.name}>":
                 inc nowrite
                 continue
-            if line == fmt "# </{percy.name}>":
+            if not inBlock and line == fmt "# </{percy.name}>":
                 dec nowrite
                 continue
-
             if nowrite:
                 continue
 
@@ -190,7 +198,7 @@ shape InitCommand: @[
             Opt(
                 flag: "r",
                 name: "reset",
-                description: "Reset the source/packages back to standard nim"
+                description: "Reset the sources to standard nim and clear existing tasks"
             )
         ]
     )
