@@ -1,8 +1,11 @@
-## A primitive "parser" for .nimble files.
-## It does not require the entire compiler to be imported, but it's
-## probably more fragile than the declarative parser.
-##
-## Copyright (C) 2025 Trayambak Rai (xtrayambak at disroot dot org)
+#[
+    A structured nimble file parser and mapper which tries to extract data and leave the file
+    as untouched as possible.  This may look hacky, but it's effective.
+
+    NOTE:  This file hs been left intentionally in non-mininm style Nim so that it's easier for
+    other package managers like neo to use it in their own solution.  This could be its own
+    package, but for now it just chills here.
+]#
 import
     std/re,
     std/json,
