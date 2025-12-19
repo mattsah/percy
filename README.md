@@ -122,10 +122,10 @@ Graph: Graph Completed With Usable Versions
     2.2.6
   https://github.com/nim-lang/checksums:
     0.2.1
-  https://github.com/primd-cooperative/mininim-core:
+  https://codeberg.org/mininim/core:
     0.0.0-branch.main
     0.0.1
-  https://github.com/primd-cooperative/mininim-cli:
+  https:/codeberg.org/mininim/cli:
     0.0.0-branch.main
     0.0.1
   https://github.com/euantorano/semver.nim:
@@ -169,8 +169,8 @@ The `<url>` must point to a git repository containing a `packages.json` file in 
 ```json
 [
 	{
-        "name": "mininim_core",
-        "url": "https://github.com/primd-cooperative/mininim-core"
+        "name": "mininim/core",
+        "url": "cb://mininim/core"
     },
     ...
 ]
@@ -179,7 +179,7 @@ The `<url>` must point to a git repository containing a `packages.json` file in 
 To add this repository to your own Percy configuration, you would execute:
 
 ```bash
-percy set source mininim gh://primd-cooperative/mininim-packages
+percy set source mininim cb://mininim/packages
 ```
 
 If you wanted to remove it:
@@ -207,7 +207,7 @@ In the example above, `neo` would now refer to to the URL provided in the exampl
 Because of the way Percy resolves package names (and because they no longer need to be valid identifiers in Nim), you can actually have packages with any name.  It should be noted, however, that if you do this, adding named packages to your `.nimble` files will obviously break any compatibility with other package manager.  For example it is completely possible to do the following:
 
 ```bash
-percy set package mininim/core gh://primd-cooperative/mininim-core
+percy set package mininim/core gh://myfork/mininim-core
 ```
 
 > **NOTE:** The package name contains a slash (`/`)
