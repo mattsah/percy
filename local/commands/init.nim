@@ -16,13 +16,32 @@ begin InitCommand:
             """
         )
 
-    method getTasks(): string {. base .} =
+    method testTask(): string {. base .} =
+        result = dedent(
+            fmt """
+            # <{percy.name}>
+            #
+            # Test Task
+            #
+
+            task test, "Run testament tests":
+                exec "testament --megatest:off --directory:testing " & commandLineParams()[1..^1].join(" ")
+
+            # </{percy.name}>
+            """
+        )
+
+    method buildTask(): string {. base .} =
         let
             cfg = "\"\"\"{\"bin\": \"\", \"srcDir\": \"\", \"binDir\": \"\"}\"\"\""
 
         result = dedent(
             fmt """
             # <{percy.name}>
+            #
+            # Build Task
+            #
+
             import
                 std/os,
                 std/json,
@@ -64,11 +83,6 @@ begin InitCommand:
                             echo "Executing: " & cmd
                             exec cmd
 
-            # Tasks
-
-            task test, "Run testament tests":
-                exec "testament --megatest:off --directory:testing " & commandLineParams()[1..^1].join(" ")
-
             task build, "Build the application (whatever it's called)":
                 when defined release:
                     build(@["--opt:speed", "--linetrace:on", "--checks:on"])
@@ -94,6 +108,7 @@ begin InitCommand:
             error: int
             target = console.getArg("target")
             inBlock = false
+            hasTests = false
 
         if repo:
             let
@@ -136,10 +151,12 @@ begin InitCommand:
                 inBlock = false
                 dec nowrite
             if not inBlock and reset:
-                if line.startsWith("task "):
+                if line.startsWith("task build,"):
                     inBlock = true
                     inc nowrite
                     continue
+                if line.startsWith("task test,"):
+                    hasTests = true
             if not inBlock and line == fmt "# <{percy.name}>":
                 inc nowrite
                 continue
@@ -158,7 +175,10 @@ begin InitCommand:
         config = config & "\n\n" & this.getPaths().strip()
 
         if console.getOpt("writeTasks", "w") of true:
-            config = config & "\n\n" & this.getTasks.strip()
+            config = config & "\n\n" & this.buildTask.strip()
+
+            if not hasTests:
+                config = config & "\n\n" & this.testTask.strip()
 
         writeFile("config.nims", config)
 
