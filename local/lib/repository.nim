@@ -104,7 +104,7 @@ begin Repository:
         let
             head = this.cacheDir / "FETCH_HEAD"
         if fileExists(head):
-            this.stale = getTime() > getLastModificationTime(head) + 1.minutes
+            this.stale = getTime() > getLastModificationTime(head) + 2.minutes
         else:
             this.stale = true
 
