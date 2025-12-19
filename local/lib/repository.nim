@@ -79,6 +79,9 @@ begin Repository:
                     of "gl", "gitlab":
                         uri.path = uri.hostname & uri.path
                         uri.hostname = "github.com"
+                    of "cb", "codeberg":
+                        uri.path = uri.hostname & uri.path
+                        uri.hostname = "codeberg.org"
                     else:
                         raise newException(ValueError, fmt "invalid scheme {uri.scheme}")
                 uri.scheme = "https"

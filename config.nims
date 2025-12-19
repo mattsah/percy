@@ -6,7 +6,6 @@
 --deepcopy:on
 --verbosity:1
 --path:"./local"
---path:"./vendor"
 
 # <percy>
 when withDir(thisDir(), system.fileExists("vendor/percy.paths")):

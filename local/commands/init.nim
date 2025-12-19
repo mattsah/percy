@@ -89,6 +89,36 @@ begin InitCommand:
             configOut: seq[string]
         let
             reset = console.getOpt("reset", "r")
+            repo = console.getArg("repo")
+        var
+            error: int
+            target = console.getArg("target")
+
+        if repo:
+            let
+                repository = Repository.init(repo)
+
+            if not target:
+                target = repository.url[repository.url.rfind('/')..^1]
+                if target.endsWith(".git"):
+                    target = target[0..^5]
+
+            if dirExists(target) or fileExists(target):
+                echo fmt "Cannot initialize repository in {target}, already exists"
+                return 1
+
+            error = percy.execCmd(@[
+                fmt "git clone {repository.url} {target}"
+            ])
+
+            if error:
+                return error
+
+            setCurrentDir(target)
+
+            error = percy.execCmd(@[
+                fmt "{getAppFilename()} install"
+            ])
 
         if not fileExists(this.settings.config) or reset:
             this.settings.data.sources.clear()
@@ -135,6 +165,16 @@ shape InitCommand: @[
     Command(
         name: "init",
         description: "Initialize as a percy package",
+        args: @[
+            Arg(
+                name: "repo",
+                description: "A repository to clone, if empty current directory is intialized"
+            ),
+            Arg(
+                name: "target",
+                description: "The directory to clone to, if empty named after repository"
+            )
+        ],
         opts: @[
             CommandConfigOpt,
             CommandVerboseOpt,
