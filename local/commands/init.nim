@@ -116,9 +116,7 @@ begin InitCommand:
 
             setCurrentDir(target)
 
-            error = percy.execCmd(@[
-                fmt "{getAppFilename()} install"
-            ])
+            this.settings = this.settings.open(this.config)
 
         if not fileExists(this.settings.config) or reset:
             this.settings.data.sources.clear()
@@ -159,7 +157,13 @@ begin InitCommand:
         this.settings.prepare(true)
         this.settings.save()
 
+        if repo:
+            error = percy.execCmd(@[
+                fmt "{getAppFilename()} install"
+            ])
 
+            if error:
+                return error
 
 shape InitCommand: @[
     Command(
