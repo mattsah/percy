@@ -14,11 +14,11 @@ The goal of Percy is to actually make package management for nim that "just work
 - Only works with `git` (no `hg`) packages/repositories
 - Assumed `git` is in your path and is a fairly recent version (at least having worktree support)
 - Dependency solver is work in progress (currently doesn't actually validate a solution) and just effectively uses highest versions.
-- Nim >= 2.2.6
+- Nim >= 2.2.6 (May actually work on earlier versions, but it's on you to custom build)
 
 ## Getting Started
 
-Percy aims to work with official nim packages and the use of existing `.nimble` files.  In fact, unlike some other solutions, there's no intention of getting rid of the `.nimble` file at all, rather just limiting it's use/purpose.
+Percy aims to work with official nim packages and the use of existing `.nimble` files.  In fact, unlike some other solutions, there's no intention of getting rid of the `.nimble` file at all, rather just limiting its use/purpose.
 
 > Keeping **the limitations above** in mind, we're asking people to test other initial aspects of Percy by:
 >
