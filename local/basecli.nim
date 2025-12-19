@@ -19,6 +19,7 @@ type
 
     BaseGraphCommand* = ref object of BaseCommand
         nimbleInfo*: NimbleFileInfo
+        nimbleFile*: string
         nimbleMap*: string
         solver*: Solver
 
@@ -53,6 +54,7 @@ begin BaseGraphCommand:
         this.solver = Solver.init()
 
         for file in walkFiles("*.nimble"):
+            this.nimbleFile = file
             this.nimbleInfo = parser.parseFile(readFile(file), this.nimbleMap)
             foundNimble = true
             break
