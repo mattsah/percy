@@ -2,7 +2,7 @@
   "meta": {},
   "sources": {
     "nim-lang": "gh://nim-lang/packages",
-    "mininim": "gh://primd-cooperative/mininim-packages"
+    "mininim": "cb://mininim/packages"
   },
   "packages": {}
 }
