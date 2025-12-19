@@ -18,7 +18,7 @@ The goal of Percy is to actually make package management for nim that "just work
 
 ## Getting Started
 
-Percy aims to work with official nim packages and the use of existing `.nimble` files.  In fact, unlike some other solutions, there's no intention of getting rid of the `.nimble` file at all, rather just limiting it's use/purpose.  
+Percy aims to work with official nim packages and the use of existing `.nimble` files.  In fact, unlike some other solutions, there's no intention of getting rid of the `.nimble` file at all, rather just limiting it's use/purpose.
 
 > Keeping **the limitations above** in mind, we're asking people to test other initial aspects of Percy by:
 >
@@ -28,7 +28,17 @@ Percy aims to work with official nim packages and the use of existing `.nimble` 
 
 ### Installation
 
-Although Percy is currently self-hosting (i.e. can manage its own dependencies and build itself), chances are you don't have it installed and there are no binary distributed files yet, so, ironically, you need to use Atlas:
+Although Percy is currently self-hosting (i.e. can manage its own dependencies and build itself), chances are you don't have it installed and there are no binary distributed files yet, so, ironically, you need to use to install it using Nimble or Atlas.
+
+#### Installing with Nimble (Recommended for Ease -- if it works)
+
+```bash
+nimble install https://github.com/mattsah/percy
+```
+
+Assuming Nimble's `bin` path is in your `PATH`, then you should simply be able to type `percy` to see the help.
+
+#### Installing with Atlas (Recommended for Reliability)
 
 ```bash
 git clone https://github.com/mattsah/percy
