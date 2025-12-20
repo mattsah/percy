@@ -25,14 +25,14 @@ type
 
 let
     CommandConfigOpt* = Opt(
-        flag: "c",
+        flag: 'c',
         name: "config",
         default: "percy.json",
         description: "The configuration settings filename"
     )
 
     CommandVerboseOpt* = Opt(
-        flag: "v",
+        flag: 'v',
         name: "verbose",
         description: "Whether or not to be verbose in output"
     )
@@ -41,8 +41,8 @@ begin BaseCommand:
     method execute*(console: Console): int {. base .} =
         result = 0
 
-        this.config = console.getOpt("config", "c")
-        this.verbose = console.getOpt("verbose", "v")
+        this.config = console.getOpt("config", 'c')
+        this.verbose = console.getOpt("verbose", 'v')
         this.settings = this.app.get(Settings).open(this.config)
 
 begin BaseGraphCommand:
@@ -128,7 +128,7 @@ begin BaseGraphCommand:
                 percy.execIn(
                     ExecHook as (
                         block:
-                            error = percy.execCmdEx(output, @[
+                            error = percy.execCmdCapture(output, @[
                                 fmt "git status --porcelain"
                             ])
                     ),

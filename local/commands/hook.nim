@@ -40,8 +40,7 @@ shape HookCommand: @[
         args: @[
             Arg(
                 name: "name",
-                description: "The name of the hook in the `hooks` folder (just a relative path)",
-                require: true
+                description: "The name of the hook in the `hooks` folder (just a relative path)"
             )
         ]
     )

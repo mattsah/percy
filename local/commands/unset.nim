@@ -50,13 +50,11 @@ shape UnsetCommand: @[
         args: @[
             Arg(
                 name: "type",
-                require: true,
                 values: @["source", "package"],
                 description: "The type of URL to unset"
             ),
             Arg(
                 name: "alias",
-                require: true,
                 description: "The alias for the source or package"
             )
         ]

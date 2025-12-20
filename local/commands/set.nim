@@ -62,18 +62,15 @@ shape SetCommand: @[
         args: @[
             Arg(
                 name: "type",
-                require: true,
                 values: @["source", "package"],
                 description: "The type of URL to set"
             ),
             Arg(
                 name: "alias",
-                require: true,
                 description: "The alias for the source or package"
             ),
             Arg(
                 name: "url",
-                require: true,
                 description: "A valid git URL for the source or package repository"
             )
         ]

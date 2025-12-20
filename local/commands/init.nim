@@ -102,7 +102,7 @@ begin InitCommand:
             configIn: seq[string]
             configOut: seq[string]
         let
-            reset = console.getOpt("reset", "r")
+            reset = console.getOpt("reset", 'r')
             repo = console.getArg("repo")
         var
             error: int
@@ -174,7 +174,7 @@ begin InitCommand:
         config = configOut.join("\n").strip()
         config = config & "\n\n" & this.getPaths().strip()
 
-        if console.getOpt("writeTasks", "w") of true:
+        if console.getOpt("writeTasks", 'w') of true:
             config = config & "\n\n" & this.buildTask.strip()
 
             if not hasTests:
@@ -211,12 +211,12 @@ shape InitCommand: @[
             CommandConfigOpt,
             CommandVerboseOpt,
             Opt(
-                flag: "w",
-                name: "withTasks",
+                flag: 'w',
+                name: "writeTasks",
                 description: "Include nim build/test tasks"
             ),
             Opt(
-                flag: "r",
+                flag: 'r',
                 name: "reset",
                 description: "Reset the sources to standard nim and clear existing tasks"
             )

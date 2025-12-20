@@ -102,7 +102,7 @@ begin Repository:
             output: string
 
         if not qualifiedUrl.startsWith($paths.getCurrentDir()):
-            (output, error) = execCmdEx(fmt "git ls-remote '{qualifiedUrl}' 'null'")
+            error = percy.execCmdCapture(output, @[fmt "git ls-remote '{qualifiedUrl}' 'null'"])
         else:
             error = 1
 
@@ -145,9 +145,29 @@ begin Repository:
         except:
             result = false
 
+    method exec*(cmdParts: seq[string], output: var string): int {. base .} =
+        var
+            error: int
+            wrappedOutput: string
+
+        if not this.cacheExists:
+            raise newException(ValueError, fmt "cannot exec commands in {this.url}, no local cache")
+
+        percy.execIn(
+            ExecHook as (
+                block:
+                    error = percy.execCmdCapture(wrappedOutput, @[cmdParts.join(" ")])
+            ),
+            this.cacheDir
+        )
+
+        result = error
+        output = wrappedOutput
+
     method clone*(): RCloneStatus {. base .} =
         var
             error: int
+            output: string
 
         if this.cacheExists:
             result = RCloneExists
@@ -158,29 +178,20 @@ begin Repository:
                 fmt "git clone --bare {this.url} {this.cacheDir}"
             ])
 
-            if error:
-                raise newException(ValueError, fmt "failed cloning {this.url}")
-            else:
+            if not error:
                 result = RCloneCreated
+            else:
+                raise newException(ValueError, fmt "failed cloning {this.url}")
 
-    method exec*(cmdParts: seq[string], output: var string): int {. base .} =
-        var
-            error: int
-            wrappedOutput: string
+            error = this.exec(
+                @[
+                    fmt "git fetch origin"
+                ],
+                output
+            )
 
-        if not this.cacheExists:
-            discard this.clone()
-
-        percy.execIn(
-            ExecHook as (
-                block:
-                    (wrappedOutput, error) = execCmdEx(cmdParts.join(" "))
-            ),
-            this.cacheDir
-        )
-
-        result = error
-        output = wrappedOutput
+            if error:
+                raise newException(ValueError, fmt "failed fetching HEAD on {this.url}: {output}")
 
     method update*(): RUpdateStatus {. base .} =
         var
@@ -195,29 +206,37 @@ begin Repository:
             if not this.cacheExists:
                 discard this.clone()
                 result = RUpdateCloned
-
-            when defined debug:
-                echo fmt "Checking for updates in {this.url}"
-
-            error = this.exec(
-                @[
-                    fmt "git fetch origin -f --prune",
-                    fmt "'+refs/tags/*:refs/{percy.name}/*'",
-                    fmt "'+refs/heads/*:refs/{percy.name}/*'",
-                    fmt "HEAD"
-                ],
-                output
-            )
-
-            if error:
-                raise newException(ValueError, fmt "failed updating {this.url}: {output}")
-            elif not output.len:
-                result = RUpdateNone
             else:
-                echo fmt "Fetched new references from {this.url}"
-                result = RUpdated
+                when defined debug:
+                    echo fmt "Checking for updates in {this.url}"
+
+                error = this.exec(
+                    @[
+                        fmt "git fetch origin -f --prune",
+                        fmt "'+refs/tags/*:refs/{percy.name}/*'",
+                        fmt "'+refs/heads/*:refs/{percy.name}/*'",
+                        fmt "HEAD"
+                    ],
+                    output
+                )
+
+                if error:
+                    raise newException(ValueError, fmt "failed updating {this.url}: {output}")
+                elif not output.len:
+                    result = RUpdateNone
+                else:
+                    echo fmt "Fetched new references from {this.url}"
+                    result = RUpdated
 
             setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
+
+    method head*(): string {. base .} =
+        for line in readFile(this.cacheDir / "FETCH_HEAD").split("\n"):
+            if line.endsWith("\t\t" & this.url):
+                result = line[0..39]
+                break
+        if not result:
+            raise newException(ValueError, fmt "could not determine head on {this.url}")
 
     method commits*(): OrderedSet[Commit] {. base .} =
         const
@@ -241,12 +260,7 @@ begin Repository:
             output
         )
 
-        for line in readFile(this.cacheDir / "FETCH_HEAD").split("\n"):
-            if line.endsWith("\t\t" & this.url):
-                head = line[0..39]
-                break
-
-        output = fmt "HEAD {head}\n{output}"
+        output = fmt "HEAD {this.head}\n{output}"
 
         for reference in output.split('\n'):
             let
@@ -326,14 +340,20 @@ begin Repository:
                     path: path
                 )
 
-    method listDir*(path: string, reference: string = "HEAD"): seq[string] {. base .} =
+    method listDir*(path: string, reference: string = ""): seq[string] {. base .} =
         var
             error: int
             output: string
+            commit: string
+
+        if not reference:
+            commit = this.head
+        else:
+            commit = reference
 
         error = this.exec(
             @[
-                fmt "git ls-tree --name-only {reference} --name-only :{path}"
+                fmt "git ls-tree --name-only {commit} --name-only :{path}"
             ],
             output
         )
@@ -341,17 +361,24 @@ begin Repository:
         if error:
             raise newException(
                 ValueError,
-                fmt "failed to list directory {reference}:{path} on {this.url}"
+                fmt "failed to list directory {commit}:{path} on {this.url}"
             )
 
         result = output.strip().split('\n')
 
-    method readFile*(path: string, reference: string = "HEAD"): string {. base .} =
-        let
-            file = reference & ":" & path.strip("/")
+    method readFile*(path: string, reference: string = ""): string {. base .} =
         var
             error: int
             output: string
+            commit: string
+
+        if not reference:
+            commit = this.head
+        else:
+            commit = reference
+
+        let
+            file = commit & ":" & path.strip("/")
 
         when debugging(2):
             echo fmt "Reading file {file} @ {this.url}"
@@ -366,7 +393,7 @@ begin Repository:
         if error:
             raise newException(
                 ValueError,
-                fmt "failed to read file {reference}:{path} on {this.url}"
+                fmt "failed to read file {commit}:{path} on {this.url}"
             )
 
         result = output

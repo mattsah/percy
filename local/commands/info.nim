@@ -11,7 +11,7 @@ begin InfoCommand:
 
         let
             infoType = console.getArg("type", "nimble")
-            useJson = console.getOpt("json", "j") of true
+            useJson = console.getOpt("json", 'j') of true
 
         case infoType:
             of "nimble":
@@ -35,14 +35,14 @@ shape InfoCommand: @[
         args: @[
             Arg(
                 name: "type",
-                require: false,
                 values: @["nimble", "graph"],
+                default: "nimble",
                 description: "The type of information to get"
             )
         ],
         opts: @[
             Opt(
-                flag: "j",
+                flag: 'j',
                 name: "json",
                 description: "Get the information as JSON"
             )
