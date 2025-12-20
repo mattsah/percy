@@ -73,6 +73,10 @@ begin AnyConstraint:
                         return true
         )
 
+begin Requirement:
+    method repository*(): Repository {. base .} =
+        result = this.repository
+
 begin DepGraph:
 
     #[
@@ -102,7 +106,9 @@ begin DepGraph:
             check: ConstraintHook as (
                 block:
                     try:
-                        if cleaned.startsWith("=="):
+                        if cleaned == "any":
+                            return true
+                        elif cleaned.startsWith("=="):
                             return v == v(fix(cleaned[2..^1]))
                         elif cleaned.startsWith(">="):
                             return v >= v(fix(cleaned[2..^1]))

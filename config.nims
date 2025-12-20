@@ -13,6 +13,10 @@ when withDir(thisDir(), system.fileExists("vendor/percy.paths")):
 # </percy>
 
 # <percy>
+#
+# Build Task
+#
+
 import
     std/os,
     std/json,
@@ -54,11 +58,6 @@ proc build(args: seq[string]): void =
                 echo "Executing: " & cmd
                 exec cmd
 
-# Tasks
-
-task test, "Run testament tests":
-    exec "testament --megatest:off --directory:testing " & commandLineParams()[1..^1].join(" ")
-
 task build, "Build the application (whatever it's called)":
     when defined release:
         build(@["--opt:speed", "--linetrace:on", "--checks:on"])
@@ -66,4 +65,14 @@ task build, "Build the application (whatever it's called)":
         build(@["--debugger:native", "--stacktrace:on", "--linetrace:on", "--checks:on"])
     else:
         build(@["--stacktrace:on", "--linetrace:on", "--checks:on"])
+# </percy>
+
+# <percy>
+#
+# Test Task
+#
+
+task test, "Run testament tests":
+    exec "testament --megatest:off --directory:testing " & commandLineParams()[1..^1].join(" ")
+
 # </percy>

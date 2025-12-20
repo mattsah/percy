@@ -86,13 +86,28 @@ begin Repository:
                         raise newException(ValueError, fmt "invalid scheme {uri.scheme}")
                 uri.scheme = "https"
 
-        if uri.scheme and uri.path.endsWith(".git"):
-            uri.path = uri.path[0..^5]
+        if uri.scheme:
+            if uri.path.endsWith(".git"):
+                uri.path = uri.path[0..^5]
+        else:
+            uri.path = absolutePath($uri)
 
         result = $uri
 
     proc validateUrl*(url: string): void {. static .} =
-        discard self.qualifyUrl(url)
+        let
+            qualifiedUrl = self.qualifyUrl(url)
+        var
+            error: int
+            output: string
+
+        if not qualifiedUrl.startsWith($paths.getCurrentDir()):
+            (output, error) = execCmdEx(fmt "git ls-remote '{qualifiedUrl}' 'null'")
+        else:
+            error = 1
+
+        if error:
+            raise newException(ValueError, fmt "repository at '{url}' does not seem to exist")
 
     method init*(url: string): void {. base .} =
         this.url = self.qualifyUrl(url)
@@ -120,14 +135,21 @@ begin Repository:
     method cacheDir*(): string {. base .} =
         result = this.cacheDir
 
-    method exists*(): bool {. base .} =
+    method cacheExists*(): bool {. base .} =
         result = dirExists(this.cacheDir)
+
+    method exists*(): bool {. base .} =
+        try:
+            self.validateUrl(this.url)
+            result = true
+        except:
+            result = false
 
     method clone*(): RCloneStatus {. base .} =
         var
             error: int
 
-        if this.exists:
+        if this.cacheExists:
             result = RCloneExists
         else:
             echo fmt "Downloading {this.url} into central caching"
@@ -146,7 +168,7 @@ begin Repository:
             error: int
             wrappedOutput: string
 
-        if not this.exists:
+        if not this.cacheExists:
             discard this.clone()
 
         percy.execIn(
@@ -170,7 +192,7 @@ begin Repository:
         if this.stale:
             this.stale = false
 
-            if not this.exists:
+            if not this.cacheExists:
                 discard this.clone()
                 result = RUpdateCloned
 
@@ -196,7 +218,6 @@ begin Repository:
                 result = RUpdated
 
             setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
-
 
     method commits*(): OrderedSet[Commit] {. base .} =
         const
@@ -317,8 +338,13 @@ begin Repository:
             output
         )
 
-        if not error:
-            result = output.strip().split('\n')
+        if error:
+            raise newException(
+                ValueError,
+                fmt "failed to list directory {reference}:{path} on {this.url}"
+            )
+
+        result = output.strip().split('\n')
 
     method readFile*(path: string, reference: string = "HEAD"): string {. base .} =
         let
@@ -337,8 +363,13 @@ begin Repository:
             output
         )
 
-        if not error:
-            result = output
+        if error:
+            raise newException(
+                ValueError,
+                fmt "failed to read file {reference}:{path} on {this.url}"
+            )
+
+        result = output
 
 
 

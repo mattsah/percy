@@ -63,10 +63,10 @@ begin BaseGraphCommand:
             raise newException(ValueError, "Could not find .nimble file")
 
     method getGraph*(quiet: bool = false): DepGraph {. base .} =
-        let
-            quiet = quiet or not this.verbose
+        result = DepGraph.init(this.settings, quiet or not this.verbose)
 
-        result = DepGraph.init(this.settings, quiet)
+    method buildGraph*(quiet: bool = false): DepGraph {. base .} =
+        result = this.getGraph(quiet)
 
         result.build(this.nimbleInfo)
 

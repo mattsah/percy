@@ -25,6 +25,13 @@ type
         config*: string
 
 begin Settings:
+    method hasName*(url: string): bool {. base .} =
+        result = false
+        for name, value in this.index:
+            if url == value:
+                result = true
+                break
+
     method getName*(url: string): string {. base .} =
         result = parseUri(url).path.strip("/")
         for name, value in this.index:
@@ -57,17 +64,17 @@ begin Settings:
             except:
                 raise newException(
                     ValueError,
-                    fmt "`packages` key '{key}' contains invalid package name: {getCurrentExceptionMsg()}."
+                    fmt "package @ '{key}' contains an invalid name: {getCurrentExceptionMsg()}."
                 )
 
             try:
                 if value.kind != JString:
-                    raise newException(ValueError, "not a string")
+                    raise newException(ValueError, "must be a string")
                 Repository.validateUrl(getStr(value))
             except:
                 raise newException(
                     ValueError,
-                    fmt "`packages` value for '{key}' contains invalid URL value: {getCurrentExceptionMsg()}."
+                    fmt "package @ '{key}' contains an invalid value: {getCurrentExceptionMsg()}."
                 )
 
     method validateSources(node: JsonNode): void {. base .} =
@@ -79,17 +86,17 @@ begin Settings:
             except:
                 raise newException(
                     ValueError,
-                    fmt "`sources` key '{key}' contains invalid source name: {getCurrentExceptionMsg()}."
+                    fmt "source @ '{key}' contains an invalid value: {getCurrentExceptionMsg()}."
                 )
 
             try:
                 if value.kind != JString:
-                    raise newException(ValueError, "not a string")
+                    raise newException(ValueError, "must be a string")
                 Repository.validateUrl(getStr(value))
             except:
                 raise newException(
                     ValueError,
-                    fmt "`sources` value for '{key}' contains invalid URL value: {getCurrentExceptionMsg()}"
+                    fmt "source @ '{key}' contains an invalid value: {getCurrentExceptionMsg()}"
                 )
 
     method validateMeta(node: JsonNode): void {. base .} =
@@ -98,7 +105,7 @@ begin Settings:
     method build(node: JsonNode): void {. base .} =
         try:
             if node.kind != JObject:
-                raise newException(ValueError, "must contain an object.")
+                raise newException(ValueError, "must be an object.")
             for key, value in node:
                 case key:
                     of "meta":
@@ -119,7 +126,7 @@ begin Settings:
                             )
 
                     else:
-                        raise newException(ValueError, fmt "unknown configuration key '{key}'")
+                        raise newException(ValueError, fmt "unknown configuration key `{key}`")
 
         except ValueError:
             raise newException(

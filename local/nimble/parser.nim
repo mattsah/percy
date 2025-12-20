@@ -17,36 +17,49 @@ import
 export
     fileinfo
 
+const
+    params = {
+        "strings": @[
+            "name", "version", "author", "description",
+            "license", "backend", "binDir", "srcDir"
+        ],
+        "arrays": @[
+            "bin", "paths"
+        ],
+        "objects": @[
+            "namedBin"
+        ]
+    }.toTable()
+
 proc parseFile*(source: string, map: var string): NimbleFileInfo =
-    const
-        params = {
-            "strings": @[
-                "name", "version", "author", "description",
-                "license", "backend", "binDir", "srcDir"
-            ],
-            "arrays": @[
-                "bin", "paths"
-            ],
-            "objects": @[
-                "namedBin"
-            ]
-        }
     let
         sourceLines = split(source & "\n", '\n')
     var
+        info: JsonNode = %NimbleFileInfo()
         mapped: HashSet[string]
         mapLines: seq[string]
         requires: seq[string]
         requiring: string = ""
         indenting: string = ""
-        info: JsonNode = %NimbleFileInfo()
+        current = -1
+
+    proc parseUntil(value: var string, closing: char): void =
+        while current < sourceLines.high:
+            let
+                rclose = value.rfind(closing)
+            if rclose >= 0:
+                value = value[0..rclose]
+                break
+            else:
+                inc current
+                value = value & sourceLines[current].strip()
 
     proc parseEqString(line: string): JsonNode =
-        let
+        var
             value = line.split('=', 1)[1].strip()
         try:
             if value.len > 0 and value[0] == '"':
-                return parseJson(value)
+                return parseJson(value[0..value.rfind('"')])
             else:
                 return newJNull()
         except:
@@ -55,8 +68,11 @@ proc parseFile*(source: string, map: var string): NimbleFileInfo =
         raise newException(ValueError, "invalid string value: " & value)
 
     proc parseEqArray(line: string): JsonNode =
-        let
+        var
             value = line.split('=', 1)[1].strip()
+
+        parseUntil(value, ']')
+
         try:
             if value.len > 0:
                 case value[0]:
@@ -76,11 +92,18 @@ proc parseFile*(source: string, map: var string): NimbleFileInfo =
         raise newException(ValueError, "invalid sequence/array value: " & value)
 
     proc parseEqObject(line: string): JsonNode =
-        let
+        var
             value = line.split('=', 1)[1].strip()
+
+        parseUntil(value, '}')
+
         try:
-            if value.len > 0 and value[0] == '{':
-                return parseJson(value[0..value.rfind('}')])
+            if value.len > 0:
+                case value[0]:
+                    of '{':
+                        return parseJson(value[0..value.rfind('}')])
+                    else:
+                        discard
             else:
                 return newJNull()
         except:
@@ -88,9 +111,13 @@ proc parseFile*(source: string, map: var string): NimbleFileInfo =
 
         raise newException(ValueError, "invalid object/map value: " & value)
 
-    for line in sourceLines:
+    while current < sourceLines.high:
+        inc current
+
         var
             found = false
+        let
+            line = sourceLines[current]
 
         if requiring.len > 0:
             if line.startsWith(indenting & ' '):
@@ -111,9 +138,11 @@ proc parseFile*(source: string, map: var string): NimbleFileInfo =
             mapLines.add(indenting & "{%requires-" & $requires.len & "%}")
             continue
 
-        for (kind, items) in params:
+        for kind, items in params:
             for item in items:
-                if not mapped.contains(item) and line.match(re("^" & item & """\s*=""")):
+                if line.match(re("^" & item & """\[.*\]\s*=""")):
+                    discard
+                elif line.match(re("^" & item & """\s*=""")) and not mapped.contains(item):
                     try:
                         var
                             node: JsonNode
@@ -124,25 +153,25 @@ proc parseFile*(source: string, map: var string): NimbleFileInfo =
                                 node = parseEqArray(line)
                             of "strings":
                                 node = parseEqString(line)
+                            else:
+                                discard
                         if node.kind != JNull:
-                            info[item] = node
+                            mapped.incl(item)
                             mapLines.add("{%" & item & "%}")
-                        else:
-                            mapLines.add(line)
+                            info[item] = node
+                            found = true
                     except:
                         raise newException(
                             ValueError,
                             "Failed parsing " & item & ", " & getCurrentExceptionMsg()
                         )
-                    mapped.incl(item)
-                    found = true
                     break
+                else:
+                    discard
             if found:
                 break
-        if found:
-            continue
-
-        mapLines.add(line)
+        if not found:
+            mapLines.add(line)
 
     map = mapLines.join("\n").strip()
 
@@ -165,3 +194,27 @@ proc parseFile*(source: string): NimbleFileInfo =
     var
         map: string
     result = parseFile(source, map)
+
+proc render*(map: string, info: NimbleFileInfo): string =
+    result = map
+    for field, value in %info:
+        if field == "requires":
+            var
+                offset = 0
+            for requirements in value:
+                result = result.replace(
+                    "{%requires-" & $offset & "%}",
+                    "requires " & requirements.pretty.strip(chars = {'[', ']', '\n', ' '})
+                )
+                inc offset
+        else:
+            let
+                token = "{%" & field & "%}"
+            if params["strings"].contains(field):
+                result = result.replace(token, field & " = " & value.pretty)
+            elif params["arrays"].contains(field):
+                result = result.replace(token, field & " = @" & value.pretty)
+            elif params["objects"].contains(field):
+                result = result.replace(token, field & " = toTable(" & value.pretty & ")")
+            else:
+                discard

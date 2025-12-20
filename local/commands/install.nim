@@ -14,10 +14,8 @@ begin InstallCommand:
         var
             checkouts: seq[Checkout]
         let
-            graph = this.getGraph()
+            graph = this.buildGraph()
             solver = Solver.init(graph)
-        #[
-        ]#
             results = solver.solve()
 
         if isSome(results.solution):

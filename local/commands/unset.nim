@@ -10,21 +10,31 @@ begin UnsetCommand:
         result = super.execute(console)
 
         let
-            setType = console.getArg("type")
-            setAlias = console.getArg("alias")
+            unsetType = console.getArg("type")
+            unsetAlias = console.getArg("alias")
+        var
+            graph: DepGraph
 
-        # validate alias
-        # validate url
-
-        case setType:
+        case unsetType:
             of "source":
-                this.settings.data.sources.del(setAlias)
+                if not this.settings.data.sources.hasKey(unsetAlias):
+                    stderr.writeLine(fmt "Invalid source alias '{unsetAlias}' specified")
+                    stderr.writeLine(fmt "  Error: does not appear to be set.")
+                    return 1
+                this.settings.data.sources.del(unsetAlias)
+
             of "package":
-                this.settings.data.packages.del(setAlias)
+                if not this.settings.data.packages.hasKey(unsetAlias):
+                    stderr.writeLine(fmt "Invalid package alias '{unsetAlias}' specified")
+                    stderr.writeLine(fmt "  Error: does not appear to be set.")
+                    return 1
+                this.settings.data.packages.del(unsetAlias)
 
         this.settings.prepare(true)
+
         try:
-            discard this.getGraph(true)
+            graph = this.buildGraph(true)
+            # TODO: Validate solution and suggest running update
             this.settings.save()
         except:
             raise getCurrentException() # replace with handling

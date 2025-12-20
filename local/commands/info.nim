@@ -9,21 +9,42 @@ begin InfoCommand:
     method execute(console: Console): int =
         result = super.execute(console)
 
-        if console.getOpt("json", "j") of true:
-            echo %this.nimbleInfo
-        else:
-            echo "shove it"
-        discard
+        let
+            infoType = console.getArg("type", "nimble")
+            useJson = console.getOpt("json", "j") of true
+
+        case infoType:
+            of "nimble":
+                if useJson:
+                    echo %this.nimbleInfo
+                else:
+                    echo "Not Implemented Yet"
+            of "graph":
+                if useJson:
+                    echo "Not Implemented Yet"
+                else:
+                    echo "Not Implemented Yet"
+            else:
+                stderr.writeLine("Invalid type specified")
+                result = 1
 
 shape InfoCommand: @[
     Command(
         name: "info",
-        description: "Remove a package from your project's dependencies",
+        description: "Get useful information about this package",
+        args: @[
+            Arg(
+                name: "type",
+                require: false,
+                values: @["nimble", "graph"],
+                description: "The type of information to get"
+            )
+        ],
         opts: @[
             Opt(
                 flag: "j",
                 name: "json",
-                description: "Get the output as JSON"
+                description: "Get the information as JSON"
             )
         ]
     )
