@@ -83,7 +83,7 @@ begin InitCommand:
                                     args.join(" "),
                                     "c " & path
                                 ].join(" ")
-                            print "Executing: " & cmd
+                            echo "Executing: " & cmd
                             exec cmd
 
             task build, "Build the application (whatever it's called)":
