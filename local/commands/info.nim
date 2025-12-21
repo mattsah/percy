@@ -11,7 +11,7 @@ begin InfoCommand:
 
         let
             infoType = console.getArg("type", "nimble")
-            useJson = console.getOpt("json", 'j') of true
+            useJson = console.getOpt("json") of true
 
         case infoType:
             of "nimble":

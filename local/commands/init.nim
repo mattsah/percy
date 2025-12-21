@@ -105,7 +105,7 @@ begin InitCommand:
             configIn: seq[string]
             configOut: seq[string]
         let
-            reset = console.getOpt("reset", 'r')
+            reset = console.getOpt("reset")
             repo = console.getArg("repo")
         var
             error: int
@@ -137,7 +137,7 @@ begin InitCommand:
 
             this.settings = this.settings.open(this.config)
 
-        if not fileExists(this.settings.config) or reset:
+        if not fileExists(this.settings.config) or reset of true:
             this.settings.data.sources.clear()
             this.settings.data.packages.clear()
 
@@ -159,7 +159,7 @@ begin InitCommand:
                     inc nowrite
                     continue
                 if line.startsWith("task test,"):
-                    hasTests = true
+                    hasTests = nowrite == 0
             if not inBlock and line == fmt "# <{percy.name}>":
                 inc nowrite
                 continue
@@ -177,7 +177,7 @@ begin InitCommand:
         config = configOut.join("\n").strip()
         config = config & "\n\n" & this.getPaths().strip()
 
-        if console.getOpt("writeTasks", 'w') of true:
+        if console.getOpt("writeTasks") of true:
             config = config & "\n\n" & this.buildTask.strip()
 
             if not hasTests:

@@ -41,8 +41,8 @@ begin BaseCommand:
     method execute*(console: Console): int {. base .} =
         result = 0
 
-        this.config = console.getOpt("config", 'c')
-        this.verbose = console.getOpt("verbose", 'v')
+        this.config = console.getOpt("config")
+        this.verbose = console.getOpt("verbose")
         this.settings = this.app.get(Settings).open(this.config)
 
 begin BaseGraphCommand:
