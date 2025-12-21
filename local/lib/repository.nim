@@ -119,7 +119,7 @@ begin Repository:
         let
             head = this.cacheDir / "FETCH_HEAD"
         if fileExists(head):
-            this.stale = getTime() > getLastModificationTime(head) + 2.minutes
+            this.stale = getTime() > getLastModificationTime(head) + 5.minutes
         else:
             this.stale = true
 
@@ -140,7 +140,8 @@ begin Repository:
 
     method exists*(): bool {. base .} =
         try:
-            self.validateUrl(this.url)
+            if this.stale:
+                self.validateUrl(this.url)
             result = true
         except:
             result = false
@@ -201,8 +202,6 @@ begin Repository:
         result = RUpdateSkip
 
         if this.stale:
-            this.stale = false
-
             if not this.cacheExists:
                 discard this.clone()
                 result = RUpdateCloned
@@ -226,9 +225,11 @@ begin Repository:
                 result = RUpdateNone
             else:
                 print fmt "Fetched new references from {this.url}"
+                setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
+
+                this.stale = false
                 result = RUpdated
 
-            setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
 
     method head*(): string {. base .} =
         for line in readFile(this.cacheDir / "FETCH_HEAD").split("\n"):

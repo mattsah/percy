@@ -5,7 +5,7 @@ description = "A package manager for Nim"
 license = "MIT"
 binDir = "bin"
 bin = @[
-    "percy"
+  "percy"
 ]
 
 requires "nim >= 2.2.6"

@@ -74,7 +74,7 @@ shape RequireCommand: @[
         args: @[
             Arg(
                 name: "package",
-                description: "An alias in one of your configured sources/packages or a URL"
+                description: "The package to require, a sourced alias or a URL"
             ),
             Arg(
                 name: "versions",

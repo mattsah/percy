@@ -198,10 +198,16 @@ proc render*(map: string, info: NimbleFileInfo): string =
             var
                 offset = 0
             for requirements in value:
-                result = result.replace(
-                    "{%requires-" & $offset & "%}",
-                    "requires " & requirements.pretty.strip(chars = {'[', ']', '\n', ' '})
-                )
+                if requirements.len == 0:
+                    result = result.replace(
+                        "{%requires-" & $offset & "%}\n",
+                        ""
+                    )
+                else:
+                    result = result.replace(
+                        "{%requires-" & $offset & "%}",
+                        "requires " & requirements.pretty.strip(chars = {'[', ']', '\n', ' '})
+                    )
                 inc offset
         else:
             let

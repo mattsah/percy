@@ -216,7 +216,10 @@ begin DepGraph:
         print fmt "Graph: Current Package Stack ({$this.stack.len})"
 
         for i, requirement in this.stack:
-            print fmt """{alignLeft("", (i+1) * 2, ' ')}{requirement.package} {requirement.versions}"""
+            print fmt """{alignLeft("", (i+1) * 2, ' ')}""", 0
+            if i != 0:
+                print " ↳ ", 0
+            print fmt """{requirement.package} {requirement.versions}"""
 
     #[
     ##
