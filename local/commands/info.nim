@@ -25,7 +25,7 @@ begin InfoCommand:
                 else:
                     print "Not Implemented Yet"
             else:
-                stderr.writeLine("Invalid type specified")
+                fail fmt "Invalid type specified"
                 result = 1
 
 shape InfoCommand: @[
