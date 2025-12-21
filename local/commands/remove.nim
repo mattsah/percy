@@ -96,6 +96,7 @@ begin RemoveCommand:
             results = solver.solve(graph)
 
             if isSome(results.solution):
+                discard this.loadSolution(results.solution.get())
                 writeFile(this.nimbleFile, newContent)
             else:
                 discard
