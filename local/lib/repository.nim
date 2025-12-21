@@ -119,7 +119,7 @@ begin Repository:
         let
             head = this.cacheDir / "FETCH_HEAD"
         if fileExists(head):
-            this.stale = getTime() > getLastModificationTime(head) + 5.minutes
+            this.stale = getTime() > getLastModificationTime(head) + 60.minutes
         else:
             this.stale = true
 
@@ -139,12 +139,17 @@ begin Repository:
         result = dirExists(this.cacheDir)
 
     method exists*(): bool {. base .} =
-        try:
-            if this.stale:
-                self.validateUrl(this.url)
+        result = false
+
+        if this.cacheExists:
             result = true
-        except:
-            result = false
+        else:
+            try:
+                if this.stale:
+                    self.validateUrl(this.url)
+                result = true
+            except:
+                discard
 
     method exec*(cmdParts: seq[string], output: var string): int {. base .} =
         var
@@ -165,10 +170,28 @@ begin Repository:
         result = error
         output = wrappedOutput
 
+    method fetch*(): bool {. base .} =
+        var
+            status: int
+            output: string
+        status = this.exec(
+            @[
+                fmt "git fetch origin -f --prune",
+                fmt "'+refs/tags/*:refs/{percy.name}/*'",
+                fmt "'+refs/heads/*:refs/{percy.name}/*'",
+                fmt "HEAD"
+            ],
+            output
+        )
+
+        if status != 0: # optimized
+            raise newException(ValueError, fmt "failed fetching from {this.url}: {output}")
+
+        result = output.len > 0
+
     method clone*(): RCloneStatus {. base .} =
         var
             error: int
-            output: string
 
         if this.cacheExists:
             result = RCloneExists
@@ -184,52 +207,26 @@ begin Repository:
             else:
                 raise newException(ValueError, fmt "failed cloning {this.url}")
 
-            error = this.exec(
-                @[
-                    fmt "git fetch origin"
-                ],
-                output
-            )
+            discard this.fetch()
 
-            if error:
-                raise newException(ValueError, fmt "failed fetching from {this.url}: {output}")
-
-    method update*(): RUpdateStatus {. base .} =
-        var
-            status: int
-            output: string
-
+    method update*(force: bool = false): RUpdateStatus {. base .} =
         result = RUpdateSkip
 
-        if this.stale:
+        if force or this.stale:
             if not this.cacheExists:
                 discard this.clone()
                 result = RUpdateCloned
 
             when defined debug:
-                print fmt "Checking for updates in {this.url}"
+                print fmt "Getting updates available in {this.url}"
 
-            status = this.exec(
-                @[
-                    fmt "git fetch origin -f --prune",
-                    fmt "'+refs/tags/*:refs/{percy.name}/*'",
-                    fmt "'+refs/heads/*:refs/{percy.name}/*'",
-                    fmt "HEAD"
-                ],
-                output
-            )
-
-            if status != 0: # optimized
-                raise newException(ValueError, fmt "failed updating {this.url}: {output}")
-            elif not output.len:
+            if not this.fetch():
                 result = RUpdateNone
             else:
-                print fmt "Fetched new references from {this.url}"
-                setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
-
-                this.stale = false
                 result = RUpdated
 
+            setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
+            this.stale = false
 
     method head*(): string {. base .} =
         for line in readFile(this.cacheDir / "FETCH_HEAD").split("\n"):

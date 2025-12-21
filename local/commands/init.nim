@@ -102,38 +102,41 @@ begin InitCommand:
 
         var
             nowrite = 0
-            configIn: seq[string]
-            configOut: seq[string]
-        let
-            reset = console.getOpt("reset")
-            repo = console.getArg("repo")
-        var
-            error: int
-            target = console.getArg("target")
             inBlock = false
             hasTests = false
+            configIn: seq[string]
+            configOut: seq[string]
+            directory: string
+            output: string
+            error: int
+        let
+            target = console.getArg("target")
+            reset = console.getOpt("reset")
+            repo = console.getArg("repo")
 
         if repo:
             let
                 repository = Repository.init(repo)
 
-            if not target:
-                target = repository.url[repository.url.rfind('/')+1..^1]
-                if target.endsWith(".git"):
-                    target = target[0..^5]
+            if target.len == 0:
+                directory = repository.url[repository.url.rfind('/')+1..^1]
+            else:
+                directory = target
 
-            if dirExists(target) or fileExists(target):
-                print fmt "Cannot initialize repository in {target}, already exists"
+            if dirExists(directory) or fileExists(directory):
+                fail fmt "Cannot initialize repository in {target}, already exists"
                 return 1
 
-            error = percy.execCmd(@[
+            error = percy.execCmdCaptureAll(output, @[
                 fmt "git clone {repository.url} {target}"
             ])
 
             if error:
-                return error
+                fail fmt "Cannot initialize repository in {target}, clone failed"
+                info indent(output, 2)
+                return 2
 
-            setCurrentDir(target)
+            setCurrentDir(directory)
 
             this.settings = this.settings.open(this.config)
 
@@ -189,12 +192,16 @@ begin InitCommand:
         this.settings.save()
 
         if repo:
-            error = percy.execCmd(@[
+            error = percy.execCmdCaptureAll(output, @[
                 fmt "{getAppFilename()} install"
             ])
 
             if error:
-                return error
+                fail fmt "Could not complete installation"
+                info indent(output, 2)
+                return 3
+
+        return 0
 
 shape InitCommand: @[
     Command(

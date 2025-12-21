@@ -12,12 +12,12 @@ begin SetCommand:
         result = super.execute(console)
 
         let
+            graph = this.getGraph()
+            solver = Solver.init()
             setUrl = console.getArg("url")
             setType = console.getArg("type")
             setAlias = console.getArg("alias")
             repository = Repository.init(setUrl)
-        var
-            graph: DepGraph
 
         case setType:
             of "source":
@@ -45,7 +45,7 @@ begin SetCommand:
         this.settings.prepare(true)
 
         try:
-            graph = this.buildGraph(true)
+            graph.build(this.nimbleInfo)
             # TODO: Validate solution and suggest running update
             this.settings.save()
         except:

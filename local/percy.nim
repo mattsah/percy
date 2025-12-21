@@ -31,6 +31,14 @@ proc getAppCacheDir*(subdir: string = ""): string =
 proc execCmd*(parts: seq[string]): int =
     result = execCmd(parts.join(" "))
 
+proc execCmdCaptureAll*(output: var string, parts: seq[string]): int =
+    when defined windows:
+        (output, result) = execCmdEx(parts.join(" "))
+    else:
+        (output, result) = execCmdEx(parts.join(" "))
+
+    output = output.strip()
+
 proc execCmdCapture*(output: var string, parts: seq[string]): int =
     when defined windows:
         (output, result) = execCmdEx(parts.join(" ") & " 2>NUL")

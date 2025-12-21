@@ -13,10 +13,17 @@ begin InstallCommand:
 
         var
             checkouts: seq[Checkout]
+            results: SolverResult
         let
-            graph = this.buildGraph()
-            solver = Solver.init(graph)
-            results = solver.solve()
+            graph = this.getGraph()
+            solver = Solver.init()
+
+        graph.build(this.nimbleInfo)
+
+        if this.verbosity > 0:
+            graph.report()
+
+        results = solver.solve(graph)
 
         if isSome(results.solution):
             checkouts = this.loadSolution(results.solution.get())

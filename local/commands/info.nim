@@ -17,6 +17,7 @@ begin InfoCommand:
             of "nimble":
                 if useJson:
                     print $(%this.nimbleInfo)
+                    return 0
                 else:
                     print "Not Implemented Yet"
             of "graph":
@@ -26,7 +27,6 @@ begin InfoCommand:
                     print "Not Implemented Yet"
             else:
                 fail fmt "Invalid type specified"
-                result = 1
 
 shape InfoCommand: @[
     Command(

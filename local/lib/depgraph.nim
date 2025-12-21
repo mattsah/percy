@@ -39,11 +39,6 @@ type
         commit: Commit
 
     Solver* = ref object of Class
-        graph: DepGraph
-        level: DecisionLevel
-        assignments: Table[Repository, Assignment]
-        learnedConstraints: seq[seq[Requirement]]
-        assignmentOrder: seq[Repository]
 
     SolverResult* = object
         solution*: Option[Solution]
@@ -401,30 +396,29 @@ begin Solver:
     #[
     ##
     ]#
-    method init*(graph: DepGraph): void {. base .} =
-        this.assignments = initTable[Repository, Assignment]()
-        this.learnedConstraints = newSeq[seq[Requirement]]()
-        this.graph = graph
-        this.level = 0
+    method init*(): void {. base .} =
+        discard
 
     #[
     ##
     ]#
-    method solve*(): SolverResult {. base .} =
+    method solve*(graph: DepGraph): SolverResult {. base .} =
         var
-            backtrackCount = 0
+            level = 0
+            assignments = initTable[Repository, Assignment]()
             knownConflicts = initHashSet[(Commit, Commit)]()
+            backtrackCount = 0
 
         while true:
             #
             # If all repositories have been assigned a version, we're done.
             #
 
-            if this.assignments.len == this.graph.tracking.len:
+            if assignments.len == graph.tracking.len:
                 var
                     solution = newSeq[Commit]()
 
-                for repository, assignment in this.assignments:
+                for repository, assignment in assignments:
                     solution.add(assignment.commit)
 
                 return SolverResult(
@@ -435,8 +429,8 @@ begin Solver:
             #
             # Make a decision
             #
-            for repository in this.graph.tracking.keys:
-                if this.assignments.hasKey(repository):
+            for repository in graph.tracking.keys:
+                if assignments.hasKey(repository):
                     #
                     # We've already assigned this repository, just continue.  The assigmnet may
                     # be removed later if not version of the next level down is found to be
@@ -444,21 +438,21 @@ begin Solver:
                     #
                     continue
 
-                for commit in this.graph.tracking[repository]:
+                for commit in graph.tracking[repository]:
                     var
                         consistentWithOtherAssignments = true
                     let
                         key = (commit.repository, commit.version)
 
-                    if this.graph.requirements.hasKey(key):
+                    if graph.requirements.hasKey(key):
                         #
                         # We loop through all of the requirements for this commit and check to see
                         # if any of our existing assignments violat them.
                         #
-                        for requirement in this.graph.requirements[key]:
-                            if this.assignments.hasKey(requirement.repository):
+                        for requirement in graph.requirements[key]:
+                            if assignments.hasKey(requirement.repository):
                                 let
-                                    assignment = this.assignments[requirement.repository]
+                                    assignment = assignments[requirement.repository]
 
                                 if not requirement.constraint.check(assignment.commit.version):
                                     knownConflicts.incl((assignment.commit, commit))
@@ -471,20 +465,20 @@ begin Solver:
                         # We were found to be consistent with all other assignments, so let's add
                         # ourself to the assignment.
                         #
-                        this.assignments[repository] = Assignment(
-                            level: this.level,
+                        assignments[repository] = Assignment(
+                            level: level,
                             commit: commit
                         )
                         break
 
-                if repository notin this.assignments:
+                if repository notin assignments:
                     #
                     # We've run through all the commmits on this repo and found none that are
                     # consistent, thus far, so we need to go back up one level.
                     #
                     inc backtrackCount
 
-                    if this.level == 0:
+                    if level == 0:
                         return SolverResult(
                             solution: none(Solution),
                             backtrackCount: backtrackCount
@@ -496,14 +490,14 @@ begin Solver:
                     #
                     var
                         toRemove = initHashSet[Repository]()
-                    for repository, assignment in this.assignments:
-                        if assignment.level >= this.level:
+                    for repository, assignment in assignments:
+                        if assignment.level >= level:
                             toRemove.incl(repository)
 
                     for repository in toRemove:
-                        this.assignments.del(repository)
+                        assignments.del(repository)
 
-                    dec this.level
+                    dec level
 
                 #
                 # If we got here, we've either:

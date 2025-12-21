@@ -21,7 +21,6 @@ type
         nimbleInfo*: NimbleFileInfo
         nimbleFile*: string
         nimbleMap*: string
-        solver*: Solver
 
 let
     CommandConfigOpt* = Opt(
@@ -53,7 +52,6 @@ begin BaseGraphCommand:
             foundNimble = false
 
         result = super.execute(console)
-        this.solver = Solver.init()
 
         for file in walkFiles("*.nimble"):
             this.nimbleFile = file
@@ -65,17 +63,9 @@ begin BaseGraphCommand:
             raise newException(ValueError, "Could not find .nimble file")
 
     method getGraph*(quiet: bool = false): DepGraph {. base .} =
-        result = DepGraph.init(this.settings, quiet or this.verbosity == 0)
+        result = DepGraph.init(this.settings, this.verbosity == 0)
 
-    method buildGraph*(quiet: bool = false): DepGraph {. base .} =
-        result = this.getGraph(quiet)
-
-        result.build(this.nimbleInfo)
-
-        if not quiet:
-            result.report()
-
-    method loadSolution*(solution: Solution, quiet: bool = false, force: bool = false): seq[Checkout] {. base .} =
+    method loadSolution*(solution: Solution, force: bool = false): seq[Checkout] {. base .} =
         var
             error: int
             output: string
@@ -86,7 +76,6 @@ begin BaseGraphCommand:
             workTrees: Table[string, WorkTree]
         let
             vendorDir = getCurrentDir() / percy.target
-            quiet = quiet or this.verbosity == 0
 
         #
         # Find all folders which we should, provisionally, delete -- based on the fact that they:
@@ -179,7 +168,7 @@ begin BaseGraphCommand:
             hasUpdateDirs = updateDirs.len > 0
             hasCreateDirs = createDirs.len > 0
 
-        if not quiet and (hasDeleteDirs or hasUpdateDirs or hasCreateDirs):
+        if this.verbosity > 1 and (hasDeleteDirs or hasUpdateDirs or hasCreateDirs):
             print fmt "Solution: Changes Required"
             if hasDeleteDirs:
                 print fmt "  Delete:"

@@ -213,7 +213,10 @@ begin Settings:
 
 
     method prepare*(reindex: bool = false): void {. base .} =
+        let
+            index = percy.target / "index." & this.config
         var
+            refresh = false
             updated = false
 
         if not dirExists(percy.target):
@@ -224,7 +227,7 @@ begin Settings:
                 of RCloneCreated:
                     updated = true
                 of RCloneExists:
-                    case source.repository.update():
+                    case source.repository.update(reindex):
                         of RUpdated:
                             updated = true
                         else:
@@ -235,16 +238,24 @@ begin Settings:
                 of RCloneCreated:
                     updated = true
                 of RCloneExists:
-                    case package.repository.update():
+                    case package.repository.update(reindex):
                         of RUpdated:
                             updated = true
                         else:
                             discard
-
         if reindex:
-            removeFile(percy.target / "index." & this.config)
+            removeFile(index)
 
-        if updated or not fileExists(percy.target / "index." & this.config):
+        if not fileExists(index):
+            refresh = true
+        elif getLastModificationTime(index) > getLastModificationTime(this.config):
+            refresh = true
+        elif updated:
+            refresh = true
+        else:
+            discard
+
+        if refresh:
             this.index()
 
 

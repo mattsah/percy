@@ -9,11 +9,15 @@ begin RemoveCommand:
     method execute(console: Console): int =
         result = super.execute(console)
 
-        var
+        let
             graph = this.getGraph()
+            solver = Solver.init()
             package = console.getArg("package")
             repository = this.settings.getRepository(package)
+        var
+            isRemoved = false
             newContent: string
+            results: SolverResult
 
         for i, requirements in this.nimbleInfo.requires:
             for j, existingLine in requirements:
@@ -72,6 +76,7 @@ begin RemoveCommand:
                                 # Account for deleted lines on next iteration of loop and
                                 # delete the lines
                                 #
+                                isRemoved = true
                                 lineNums = forLine - revLine + 1
                                 mapLines.delete(revLine..forLine)
                             else:
@@ -79,17 +84,27 @@ begin RemoveCommand:
 
                         this.nimbleMap = mapLines.join('\n')
 
+        if not isRemoved:
+            fail fmt "Package '{package}' does not seem to be currently required"
+            return 1
+
         newContent = parser.render(this.nimbleMap, this.nimbleInfo)
 
         try:
             graph.build(this.nimbleInfo)
-            # TODO: Validate and run Solution
-            writeFile(this.nimbleFile, newContent)
+
+            results = solver.solve(graph)
+
+            if isSome(results.solution):
+                writeFile(this.nimbleFile, newContent)
+            else:
+                discard
         except:
             graph.reportStack()
             fail fmt "Failed updating with new requirement"
             info fmt "  Error: {getCurrentExceptionMsg()}"
             return 3
+
 shape RemoveCommand: @[
     Command(
         name: "remove",

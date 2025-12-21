@@ -10,10 +10,10 @@ begin UnsetCommand:
         result = super.execute(console)
 
         let
+            graph = this.getGraph()
+            solver = Solver.init()
             unsetType = console.getArg("type")
             unsetAlias = console.getArg("alias")
-        var
-            graph: DepGraph
 
         case unsetType:
             of "source":
@@ -33,7 +33,7 @@ begin UnsetCommand:
         this.settings.prepare(true)
 
         try:
-            graph = this.buildGraph(true)
+            graph.build(this.nimbleInfo)
             # TODO: Validate solution and suggest running update
             this.settings.save()
         except:

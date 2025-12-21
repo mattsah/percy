@@ -11,20 +11,19 @@ begin RequireCommand:
     method execute(console: Console): int =
         result = super.execute(console)
 
-        var
+        let
             graph = this.getGraph()
-            changed = false
+            solver = Solver.init()
             package = console.getArg("package")
             versions = console.getArg("versions")
-            newContent: string
-            requirement: Requirement
-
-        if versions == "any":
-            versions = ""
-
-        let
             requireCount = this.nimbleInfo.requires.len
             requireLine = strip(fmt "{package} {versions}")
+
+        var
+            hasAddition = false
+            newContent: string
+            requirement: Requirement
+            results: SolverResult
 
         try:
             requirement = graph.parseRequirement(requireLine)
@@ -49,9 +48,10 @@ begin RequireCommand:
                     existingRequirement = graph.parseRequirement(existingLine)
                 if requirement.repository.url == existingRequirement.repository.url:
                     this.nimbleInfo.requires[i][j] = requireLine
-                    changed = true
+                else:
+                    hasAddition = true
 
-        if not changed:
+        if hasAddition:
             this.nimbleMap = this.nimbleMap & "\n" & "{%requires-" & $requireCount & "%}"
             this.nimbleInfo.requires.add(@[requireLine])
 
@@ -59,8 +59,13 @@ begin RequireCommand:
 
         try:
             graph.build(this.nimbleInfo)
-            # TODO: Validate and run Solution
-            writeFile(this.nimbleFile, newContent)
+
+            results = solver.solve(graph)
+
+            if isSome(results.solution):
+                writeFile(this.nimbleFile, newContent)
+            else:
+                discard
         except:
             graph.reportStack()
             fail fmt "Failed updating with new requirement"
@@ -78,6 +83,7 @@ shape RequireCommand: @[
             ),
             Arg(
                 name: "versions",
+                default: "any",
                 description: "A valid versions constraint string such as 'any' or '>= 1.2'"
             )
         ],
