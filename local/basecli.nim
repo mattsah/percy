@@ -202,7 +202,7 @@ begin BaseGraphCommand:
                     ExecHook as (
                         block:
                             error = percy.execCmd(@[
-                                fmt "git checkout {commitHash}"
+                                fmt "git checkout -q --detach {commitHash}"
                             ])
                     ),
                     workDir

@@ -34,6 +34,7 @@ type
 
     WorkTree* = ref object of Class
         repository*: Repository
+        branch*: string
         head*: string
         path*: string
 
@@ -320,8 +321,9 @@ begin Repository:
             let
                 lines = worktree.split('\n')
             var
-                path: string = ""
+                branch: string = ""
                 head: string = ""
+                path: string = ""
 
             if lines[1] == "bare":
                 continue
@@ -333,10 +335,13 @@ begin Repository:
             for line in lines:
                 if line.startsWith("HEAD "):
                     head = line.split(' ')[1]
+                elif line.startsWith("branch"):
+                    branch = line.split(' ')[1].replace("refs/heads/", "")
 
             if path.len > 0 and head.len > 0: # optimized
                 result[path] = WorkTree(
                     repository: this,
+                    branch: branch,
                     head: head,
                     path: path
                 )
