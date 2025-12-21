@@ -15,6 +15,9 @@ begin UnsetCommand:
         var
             graph: DepGraph
 
+        info unsetType
+        info unsetAlias
+
         case unsetType:
             of "source":
                 if not this.settings.data.sources.hasKey(unsetAlias):

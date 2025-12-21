@@ -186,10 +186,6 @@ proc parseFile*(source: string, map: var string): NimbleFileInfo =
 
     result = info.to(NimbleFileInfo)
 
-    when defined debug:
-        echo "Parsed Nimble file:"
-        echo %result
-
 proc parseFile*(source: string): NimbleFileInfo =
     var
         map: string

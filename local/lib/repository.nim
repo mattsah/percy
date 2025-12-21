@@ -58,7 +58,7 @@ begin Repository:
         var
             uri = parseUri(url)
 
-        if not uri.scheme:
+        if uri.scheme.len == 0: # optimized
             if dirExists(uri.path / ".git"):
                 uri.path = $absolutePath(Path uri.path)
             elif uri.path.match(re"^.+\@.+\:.+$"):
@@ -86,13 +86,13 @@ begin Repository:
                         raise newException(ValueError, fmt "invalid scheme {uri.scheme}")
                 uri.scheme = "https"
 
-        if uri.scheme:
+        if uri.scheme.len > 0: # optimized
             if uri.path.endsWith(".git"):
                 uri.path = uri.path[0..^5]
         else:
             uri.path = absolutePath($uri)
 
-        result = $uri
+        result = strip($uri, leading = false, chars = {'/'})
 
     proc validateUrl*(url: string): void {. static .} =
         let
@@ -191,11 +191,11 @@ begin Repository:
             )
 
             if error:
-                raise newException(ValueError, fmt "failed fetching HEAD on {this.url}: {output}")
+                raise newException(ValueError, fmt "failed fetching from {this.url}: {output}")
 
     method update*(): RUpdateStatus {. base .} =
         var
-            error: int
+            status: int
             output: string
 
         result = RUpdateSkip
@@ -206,33 +206,33 @@ begin Repository:
             if not this.cacheExists:
                 discard this.clone()
                 result = RUpdateCloned
+
+            when defined debug:
+                echo fmt "Checking for updates in {this.url}"
+
+            status = this.exec(
+                @[
+                    fmt "git fetch origin -f --prune",
+                    fmt "'+refs/tags/*:refs/{percy.name}/*'",
+                    fmt "'+refs/heads/*:refs/{percy.name}/*'",
+                    fmt "HEAD"
+                ],
+                output
+            )
+
+            if status != 0: # optimized
+                raise newException(ValueError, fmt "failed updating {this.url}: {output}")
+            elif not output.len:
+                result = RUpdateNone
             else:
-                when defined debug:
-                    echo fmt "Checking for updates in {this.url}"
-
-                error = this.exec(
-                    @[
-                        fmt "git fetch origin -f --prune",
-                        fmt "'+refs/tags/*:refs/{percy.name}/*'",
-                        fmt "'+refs/heads/*:refs/{percy.name}/*'",
-                        fmt "HEAD"
-                    ],
-                    output
-                )
-
-                if error:
-                    raise newException(ValueError, fmt "failed updating {this.url}: {output}")
-                elif not output.len:
-                    result = RUpdateNone
-                else:
-                    echo fmt "Fetched new references from {this.url}"
-                    result = RUpdated
+                echo fmt "Fetched new references from {this.url}"
+                result = RUpdated
 
             setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
 
     method head*(): string {. base .} =
         for line in readFile(this.cacheDir / "FETCH_HEAD").split("\n"):
-            if line.endsWith("\t\t" & this.url):
+            if line.toLower().split("\t\t")[1].startsWith(this.url.strip(chars = {'/'}).toLower()):
                 result = line[0..39]
                 break
         if not result:
@@ -245,13 +245,13 @@ begin Repository:
         let
             prefix = fmt "{percy.name}/"
         var
-            error: int
+            status: int
             output: string
             head: string
 
         discard this.update()
 
-        error = this.exec(
+        status = this.exec(
             @[
                 fmt "git for-each-ref --omit-empty --format='{tag} {hash}'",
                 fmt "'refs/{percy.name}/?*[0-9]*.*'",
@@ -259,6 +259,9 @@ begin Repository:
             ],
             output
         )
+
+        if status != 0:
+            raise newException(ValueError, fmt "failed aggregating commits on {this.url}")
 
         output = fmt "HEAD {this.head}\n{output}"
 
@@ -294,25 +297,25 @@ begin Repository:
 
     method worktrees*(): Table[string, WorkTree] {. base .} =
         var
-            error: int
+            status: int
             worktrees: string
 
-        error = this.exec(
+        status = this.exec(
             @[
                 fmt "git worktree prune"
             ],
             worktrees
         )
-        if error:
+        if status != 0: # optimized
             raise newException(ValueError, "Could not prune worktree list")
 
-        error = this.exec(
+        status = this.exec(
             @[
                 fmt "git worktree list --porcelain"
             ],
             worktrees
         )
-        if error:
+        if status != 0: # optimized
             raise newException(ValueError, "Could not get worktree list")
 
         for worktree in worktrees.strip().split("\n\n"):
@@ -333,7 +336,7 @@ begin Repository:
                 if line.startsWith("HEAD "):
                     head = line.split(' ')[1]
 
-            if path and head:
+            if path.len > 0 and head.len > 0: # optimized
                 result[path] = WorkTree(
                     repository: this,
                     head: head,

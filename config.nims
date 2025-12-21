@@ -29,9 +29,12 @@ import
 proc build(args: seq[string]): void =
     var
         cfg: JsonNode
-    let
-        (info, error) = gorgeEx("percy info -j")
-
+    when defined(windows):
+        let
+            (info, error) = gorgeEx("percy info -j 2>NUL")
+    else:
+        let
+            (info, error) = gorgeEx("percy info -j 2>/dev/null")
     if error > 0:
         cfg = parseJson("""{"bin": "", "srcDir": "", "binDir": ""}""")
     else:

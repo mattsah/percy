@@ -19,7 +19,7 @@ type
     AnyConstraint* = ref object of Constraint
 
     Requirement* = object
-        original: string
+        versions: string
         repository: Repository
         constraint: Constraint
 
@@ -172,6 +172,7 @@ begin DepGraph:
         let
             parts = requirement.strip().split(' ', 1)
         var
+            versions: string
             repository = this.settings.getRepository(parts[0].strip())
             constraint = Constraint(check: ConstraintHook as (
                 block:
@@ -179,8 +180,13 @@ begin DepGraph:
             ))
 
         if parts.len > 1:
+            versions = parts[1]
+        else:
+            versions = "any"
+
+        if parts.len > 1:
             var
-                anyParts = parts[1].split('|')
+                anyParts = versions.split('|')
                 anyItems = newSeq[Constraint](anyParts.len)
 
             for i, anyConstraint in anyParts:
@@ -194,7 +200,7 @@ begin DepGraph:
             constraint = AnyConstraint.init(anyItems)
 
         result = Requirement(
-            original: requirement,
+            versions: versions,
             repository: repository,
             constraint: constraint
         )
@@ -273,7 +279,7 @@ begin DepGraph:
         if not this.quiet:
             echo fmt "Graph: Adding Requirement"
             echo fmt "  Dependent: {commit.repository.url} @ {commit.version}"
-            echo fmt "  Dependends On: {requirement.repository.url} @ {requirement.original}"
+            echo fmt "  Dependends On: {requirement.repository.url} @ {requirement.versions}"
 
         this.addRepository(requirement.repository)
 

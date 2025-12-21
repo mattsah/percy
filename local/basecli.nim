@@ -135,7 +135,7 @@ begin BaseGraphCommand:
                     workDir
                 )
 
-                if output:
+                if output.len > 0: #optimized
                     if not force:
                         raise newException(
                             ValueError,
@@ -172,17 +172,22 @@ begin BaseGraphCommand:
         # Report changes
         #
 
-        if not quiet and (deleteDirs or updateDirs or createDirs):
+        let # optimized
+            hasDeleteDirs = deleteDirs.len > 0
+            hasUpdateDirs = updateDirs.len > 0
+            hasCreateDirs = createDirs.len > 0
+
+        if not quiet and (hasDeleteDirs or hasUpdateDirs or hasCreateDirs):
             echo fmt "Solution: Changes Required"
-            if deleteDirs:
+            if hasDeleteDirs:
                 echo fmt "  Delete:"
                 for dir in deleteDirs:
                     echo fmt "    {dir}"
-            if updateDirs:
+            if hasUpdateDirs:
                 echo fmt "  Update:"
                 for dir in updateDirs:
                     echo fmt "    {dir}"
-            if createDirs:
+            if hasCreateDirs:
                 echo fmt "  Create:"
                 for dir in createDirs:
                     echo fmt "    {dir}"
@@ -216,7 +221,7 @@ begin BaseGraphCommand:
                     fmt "git worktree add -d {workDir} {commitHash}"
                 ], output)
 
-            if commit.info.srcDir:
+            if commit.info.srcDir.len > 0: # optimized
                 pathList.add(fmt """--path:"{percy.target / relDir / commit.info.srcDir}"""")
             else:
                 pathList.add(fmt """--path:"{percy.target / relDir}"""")
