@@ -73,7 +73,7 @@ shape RequireCommand: @[
         ],
         opts: @[
             CommandConfigOpt,
-            CommandVerboseOpt,
+            CommandVerbosityOpt,
         ]
     )
 ]

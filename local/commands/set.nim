@@ -57,7 +57,7 @@ shape SetCommand: @[
         description: "Set a source or package URL",
         opts: @[
             CommandConfigOpt,
-            CommandVerboseOpt,
+            CommandVerbosityOpt,
         ],
         args: @[
             Arg(

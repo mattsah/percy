@@ -52,13 +52,13 @@ proc execIn*(callback: ExecHook, dir: string = percy.getLocalDir()): void =
         originalDir = getCurrentDir()
     if dir != "":
         when defined debug:
-            echo fmt "Entering directory '{dir}'"
+            print fmt "Entering directory '{dir}'"
         setCurrentDir(dir)
     try:
         callback()
     finally:
         when defined debug:
-            echo fmt "Leaving directory '{dir}'"
+            print fmt "Leaving directory '{dir}'"
         setCurrentDir(originalDir)
 
 proc hasFile*(path: string): bool =

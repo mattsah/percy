@@ -48,7 +48,7 @@ shape UnsetCommand: @[
         description: "Unset a source or package URL",
         opts: @[
             CommandConfigOpt,
-            CommandVerboseOpt,
+            CommandVerbosityOpt,
         ],
         args: @[
             Arg(

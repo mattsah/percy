@@ -27,7 +27,7 @@ begin HookCommand:
                 if file.path.endsWith(".nims"):
                     error = execCmd(fmt "nim r {file.path}")
         else:
-            echo "No hook(s) found"
+            print "No hook(s) found"
 
 shape HookCommand: @[
     Command(
@@ -35,7 +35,7 @@ shape HookCommand: @[
         description: "Execute a hook from the `hooks` folder",
         opts: @[
             CommandConfigOpt,
-            CommandVerboseOpt,
+            CommandVerbosityOpt,
         ],
         args: @[
             Arg(

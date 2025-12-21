@@ -172,7 +172,7 @@ begin Repository:
         if this.cacheExists:
             result = RCloneExists
         else:
-            echo fmt "Downloading {this.url} into central caching"
+            print fmt "Downloading {this.url} into central caching"
 
             error = percy.execCmd(@[
                 fmt "git clone --bare {this.url} {this.cacheDir}"
@@ -208,7 +208,7 @@ begin Repository:
                 result = RUpdateCloned
 
             when defined debug:
-                echo fmt "Checking for updates in {this.url}"
+                print fmt "Checking for updates in {this.url}"
 
             status = this.exec(
                 @[
@@ -225,7 +225,7 @@ begin Repository:
             elif not output.len:
                 result = RUpdateNone
             else:
-                echo fmt "Fetched new references from {this.url}"
+                print fmt "Fetched new references from {this.url}"
                 result = RUpdated
 
             setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
@@ -384,7 +384,7 @@ begin Repository:
             file = commit & ":" & path.strip("/")
 
         when debugging(2):
-            echo fmt "Reading file {file} @ {this.url}"
+            print fmt "Reading file {file} @ {this.url}"
 
         error = this.exec(
             @[

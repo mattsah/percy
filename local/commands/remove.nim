@@ -19,7 +19,7 @@ shape RemoveCommand: @[
         description: "Remove a package from your project's dependencies",
         opts: @[
             CommandConfigOpt,
-            CommandVerboseOpt,
+            CommandVerbosityOpt,
         ]
     )
 ]

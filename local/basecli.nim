@@ -14,7 +14,7 @@ export
 type
     BaseCommand* = ref object of Class
         config*: string
-        verbose*: string
+        verbosity*: int
         settings*: Settings
 
     BaseGraphCommand* = ref object of BaseCommand
@@ -31,10 +31,12 @@ let
         description: "The configuration settings filename"
     )
 
-    CommandVerboseOpt* = Opt(
+    CommandVerbosityOpt* = Opt(
         flag: 'v',
-        name: "verbose",
-        description: "Whether or not to be verbose in output"
+        name: "verbosity",
+        default: "0",
+        values: @["1", "2", "3"],
+        description: "The verbosity level of the output"
     )
 
 begin BaseCommand:
@@ -42,7 +44,7 @@ begin BaseCommand:
         result = 0
 
         this.config = console.getOpt("config")
-        this.verbose = console.getOpt("verbose")
+        this.verbosity = parseInt(console.getOpt("verbosity"))
         this.settings = this.app.get(Settings).open(this.config)
 
 begin BaseGraphCommand:
@@ -63,7 +65,7 @@ begin BaseGraphCommand:
             raise newException(ValueError, "Could not find .nimble file")
 
     method getGraph*(quiet: bool = false): DepGraph {. base .} =
-        result = DepGraph.init(this.settings, quiet or not this.verbose)
+        result = DepGraph.init(this.settings, quiet or this.verbosity == 0)
 
     method buildGraph*(quiet: bool = false): DepGraph {. base .} =
         result = this.getGraph(quiet)
@@ -84,7 +86,7 @@ begin BaseGraphCommand:
             workTrees: Table[string, WorkTree]
         let
             vendorDir = getCurrentDir() / percy.target
-            quiet = quiet or not this.verbose
+            quiet = quiet or this.verbosity == 0
 
         #
         # Find all folders which we should, provisionally, delete -- based on the fact that they:
@@ -178,19 +180,19 @@ begin BaseGraphCommand:
             hasCreateDirs = createDirs.len > 0
 
         if not quiet and (hasDeleteDirs or hasUpdateDirs or hasCreateDirs):
-            echo fmt "Solution: Changes Required"
+            print fmt "Solution: Changes Required"
             if hasDeleteDirs:
-                echo fmt "  Delete:"
+                print fmt "  Delete:"
                 for dir in deleteDirs:
-                    echo fmt "    {dir}"
+                    print fmt "    {dir}"
             if hasUpdateDirs:
-                echo fmt "  Update:"
+                print fmt "  Update:"
                 for dir in updateDirs:
-                    echo fmt "    {dir}"
+                    print fmt "    {dir}"
             if hasCreateDirs:
-                echo fmt "  Create:"
+                print fmt "  Create:"
                 for dir in createDirs:
-                    echo fmt "    {dir}"
+                    print fmt "    {dir}"
 
         #
         # Perform loading

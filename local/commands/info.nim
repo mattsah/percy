@@ -16,14 +16,14 @@ begin InfoCommand:
         case infoType:
             of "nimble":
                 if useJson:
-                    echo %this.nimbleInfo
+                    print $(%this.nimbleInfo)
                 else:
-                    echo "Not Implemented Yet"
+                    print "Not Implemented Yet"
             of "graph":
                 if useJson:
-                    echo "Not Implemented Yet"
+                    print "Not Implemented Yet"
                 else:
-                    echo "Not Implemented Yet"
+                    print "Not Implemented Yet"
             else:
                 stderr.writeLine("Invalid type specified")
                 result = 1
@@ -41,6 +41,8 @@ shape InfoCommand: @[
             )
         ],
         opts: @[
+            CommandConfigOpt,
+            CommandVerbosityOpt,
             Opt(
                 flag: 'j',
                 name: "json",

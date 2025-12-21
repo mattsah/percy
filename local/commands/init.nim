@@ -83,7 +83,7 @@ begin InitCommand:
                                     args.join(" "),
                                     "c " & path
                                 ].join(" ")
-                            echo "Executing: " & cmd
+                            print "Executing: " & cmd
                             exec cmd
 
             task build, "Build the application (whatever it's called)":
@@ -123,7 +123,7 @@ begin InitCommand:
                     target = target[0..^5]
 
             if dirExists(target) or fileExists(target):
-                echo fmt "Cannot initialize repository in {target}, already exists"
+                print fmt "Cannot initialize repository in {target}, already exists"
                 return 1
 
             error = percy.execCmd(@[
@@ -212,7 +212,7 @@ shape InitCommand: @[
         ],
         opts: @[
             CommandConfigOpt,
-            CommandVerboseOpt,
+            CommandVerbosityOpt,
             Opt(
                 flag: 'w',
                 name: "writeTasks",

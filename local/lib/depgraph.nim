@@ -209,12 +209,12 @@ begin DepGraph:
     ##
     ]#
     method report*(): void {. base .} =
-        echo "Graph: Graph Completed With Usable Versions"
+        print "Graph: Graph Completed With Usable Versions"
 
         for repository, commits in this.tracking:
-            echo fmt "  {repository.url}:"
+            print fmt "  {repository.url}:"
             for commit in commits:
-                echo fmt "    {commit.version}"
+                print fmt "    {commit.version}"
 
     #[
     ##
@@ -228,8 +228,8 @@ begin DepGraph:
 
         if not this.requirements.hasKey(key):
             if not this.quiet:
-                echo fmt "Graph: Resolving Nimble File"
-                echo fmt "  Source: {commit.repository.url} @ {commit.version}"
+                print fmt "Graph: Resolving Nimble File"
+                print fmt "  Source: {commit.repository.url} @ {commit.version}"
 
             this.tracking[commit.repository].incl(commit)
 
@@ -241,16 +241,16 @@ begin DepGraph:
                         let
                             contents = commit.repository.readFile(file, commit.id)
                         when debugging(3):
-                            echo fmt "Graph: Parsing nimble contents"
-                            echo fmt "  Repository: {commit.repository.url}"
-                            echo fmt "  Commit: {commit.version} ({commit.id})"
-                            echo indent(contents, 4)
+                            print fmt "Graph: Parsing nimble contents"
+                            print fmt "  Repository: {commit.repository.url}"
+                            print fmt "  Commit: {commit.version} ({commit.id})"
+                            print indent(contents, 4)
                         commit.info = parser.parseFile(contents)
                     except:
-                        echo fmt "Graph: Failed parsing nimble file {file}"
-                        echo fmt "  Repository: {commit.repository.url}"
-                        echo fmt "  Commit: {commit.version} ({commit.id})"
-                        echo fmt "  Error: {getCurrentExceptionMsg()}"
+                        print fmt "Graph: Failed parsing nimble file {file}"
+                        print fmt "  Repository: {commit.repository.url}"
+                        print fmt "  Commit: {commit.version} ({commit.id})"
+                        print fmt "  Error: {getCurrentExceptionMsg()}"
                         quit(1)
 
                     for requirements in commit.info.requires:
@@ -264,8 +264,8 @@ begin DepGraph:
     method addRepository*(repository: Repository): void {. base .} =
         if not this.commits.hasKey(repository):
             if not this.quiet:
-                echo fmt "Graph: Adding Repository (Scanning Available Tags)"
-                echo fmt "  Repository: {repository.url}"
+                print fmt "Graph: Adding Repository (Scanning Available Tags)"
+                print fmt "  Repository: {repository.url}"
 
             this.commits[repository] = repository.commits
 
@@ -277,9 +277,9 @@ begin DepGraph:
             key = (commit.repository, commit.version)
 
         if not this.quiet:
-            echo fmt "Graph: Adding Requirement"
-            echo fmt "  Dependent: {commit.repository.url} @ {commit.version}"
-            echo fmt "  Dependends On: {requirement.repository.url} @ {requirement.versions}"
+            print fmt "Graph: Adding Requirement"
+            print fmt "  Dependent: {commit.repository.url} @ {commit.version}"
+            print fmt "  Dependends On: {requirement.repository.url} @ {requirement.versions}"
 
         this.addRepository(requirement.repository)
 
@@ -298,9 +298,9 @@ begin DepGraph:
 
             for commit in toRemove:
                 if not this.quiet:
-                    echo fmt "Graph: Excluding Commit (Not Usable At Top-Level)"
-                    echo fmt "  Repository: {commit.repository.url}"
-                    echo fmt "  Version: {commit.version}"
+                    print fmt "Graph: Excluding Commit (Not Usable At Top-Level)"
+                    print fmt "  Repository: {commit.repository.url}"
+                    print fmt "  Version: {commit.version}"
                 this.commits[commit.repository].excl(commit)
         else:
             for commit in this.commits[requirement.repository]:
@@ -314,9 +314,9 @@ begin DepGraph:
                 this.resolve(commit, depth)
             else:
                 if not this.quiet:
-                    echo fmt "Graph: Skipping Resolution (Already Removed)"
-                    echo fmt "  Repository: {commit.repository.url}"
-                    echo fmt "  Version: {commit.version}"
+                    print fmt "Graph: Skipping Resolution (Already Removed)"
+                    print fmt "  Repository: {commit.repository.url}"
+                    print fmt "  Version: {commit.version}"
 
 
     #[

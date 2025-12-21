@@ -17,7 +17,7 @@ shape UpdateCommand: @[
         description: "Update package(s) and corresponding version constraints",
         opts: @[
             CommandConfigOpt,
-            CommandVerboseOpt,
+            CommandVerbosityOpt,
         ]
     )
 ]
