@@ -15,21 +15,18 @@ begin UnsetCommand:
         var
             graph: DepGraph
 
-        info unsetType
-        info unsetAlias
-
         case unsetType:
             of "source":
                 if not this.settings.data.sources.hasKey(unsetAlias):
-                    stderr.writeLine(fmt "Invalid source alias '{unsetAlias}' specified")
-                    stderr.writeLine(fmt "  Error: does not appear to be set.")
+                    fail fmt "Invalid source alias '{unsetAlias}' specified"
+                    info fmt "  Error: does not appear to be set."
                     return 1
                 this.settings.data.sources.del(unsetAlias)
 
             of "package":
                 if not this.settings.data.packages.hasKey(unsetAlias):
-                    stderr.writeLine(fmt "Invalid package alias '{unsetAlias}' specified")
-                    stderr.writeLine(fmt "  Error: does not appear to be set.")
+                    fail fmt "Invalid package alias '{unsetAlias}' specified"
+                    info fmt "  Error: does not appear to be set."
                     return 1
                 this.settings.data.packages.del(unsetAlias)
 

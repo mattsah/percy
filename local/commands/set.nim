@@ -25,21 +25,21 @@ begin SetCommand:
                     Source.validateName(setAlias)
                     this.settings.data.sources[setAlias] = Source.init(repository)
                 except:
-                    stderr.writeLine(fmt "Invalid source alias '{setAlias}' specified")
-                    stderr.writeLine(fmt "  Error: {getCurrentExceptionMsg()}")
+                    fail fmt "Invalid source alias '{setAlias}' specified"
+                    info fmt "  Error: {getCurrentExceptionMsg()}"
                     return 1
             of "package":
                 try:
                     Package.validateName(setAlias)
                     this.settings.data.packages[setAlias] = Package.init(repository)
                 except:
-                    stderr.writeLine(fmt "Invalid package alias '{setAlias}' specified")
-                    stderr.writeLine(fmt "  Error: {getCurrentExceptionMsg()}")
+                    fail fmt "Invalid package alias '{setAlias}' specified"
+                    info fmt "  Error: {getCurrentExceptionMsg()}"
                     return 1
 
         if not repository.exists:
-            stderr.writeLine(fmt "Invalid url specified")
-            stderr.writeLine(fmt "  Error: {getCurrentExceptionMsg()}")
+            fail fmt "Invalid url specified"
+            info fmt "  Error: {getCurrentExceptionMsg()}"
             return 2
 
         this.settings.prepare(true)

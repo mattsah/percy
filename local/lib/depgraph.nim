@@ -19,12 +19,14 @@ type
     AnyConstraint* = ref object of Constraint
 
     Requirement* = object
-        versions: string
-        repository: Repository
+        package*: string
+        versions*: string
+        repository*: Repository
         constraint: Constraint
 
     DepGraph* = ref object of Class
         quiet: bool
+        stack: seq[Requirement]
         commits: OrderedTable[Repository, OrderedSet[Commit]]
         tracking: OrderedTable[Repository, OrderedSet[Commit]]
         requirements: Table[(Repository, Version), seq[Requirement]]
@@ -171,9 +173,10 @@ begin DepGraph:
         # URL can contain a ~ and so can a cleaned.
         let
             parts = requirement.strip().split(' ', 1)
+            package = parts[0]
         var
             versions: string
-            repository = this.settings.getRepository(parts[0].strip())
+            repository = this.settings.getRepository(package)
             constraint = Constraint(check: ConstraintHook as (
                 block:
                     result = true
@@ -200,10 +203,20 @@ begin DepGraph:
             constraint = AnyConstraint.init(anyItems)
 
         result = Requirement(
+            package: package,
             versions: versions,
             repository: repository,
             constraint: constraint
         )
+
+    #[
+    ##
+    ]#
+    method reportStack*(): void {. base .} =
+        print fmt "Graph: Current Package Stack ({$this.stack.len})"
+
+        for i, requirement in this.stack:
+            print fmt """{alignLeft("", (i+1) * 2, ' ')}{requirement.package} {requirement.versions}"""
 
     #[
     ##
@@ -263,6 +276,12 @@ begin DepGraph:
     ]#
     method addRepository*(repository: Repository): void {. base .} =
         if not this.commits.hasKey(repository):
+            if not repository.exists:
+                raise newException(
+                    ValueError,
+                    fmt """required repository '{repository.url}' does not seem to exist"""
+                )
+
             if not this.quiet:
                 print fmt "Graph: Adding Repository (Scanning Available Tags)"
                 print fmt "  Repository: {repository.url}"
@@ -275,6 +294,8 @@ begin DepGraph:
     method addRequirement*(commit: Commit, requirement: Requirement, depth: int): void {. base .} =
         let
             key = (commit.repository, commit.version)
+
+        this.stack.add(requirement)
 
         if not this.quiet:
             print fmt "Graph: Adding Requirement"
@@ -317,6 +338,8 @@ begin DepGraph:
                     print fmt "Graph: Skipping Resolution (Already Removed)"
                     print fmt "  Repository: {commit.repository.url}"
                     print fmt "  Version: {commit.version}"
+
+        discard this.stack.pop()
 
 
     #[
