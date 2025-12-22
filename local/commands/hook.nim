@@ -15,8 +15,6 @@ begin HookCommand:
             file: string
             error: int
 
-        this.settings.prepare()
-
         if not hook.endsWith(".nims"):
             file = hook & ".nims"
 

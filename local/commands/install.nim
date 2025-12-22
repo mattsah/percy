@@ -9,8 +9,6 @@ begin InstallCommand:
     method execute(console: Console): int =
         result = super.execute(console)
 
-        this.settings.prepare()
-
         var
             checkouts: seq[Checkout]
             results: SolverResult

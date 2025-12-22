@@ -138,7 +138,7 @@ begin InitCommand:
 
             setCurrentDir(directory)
 
-            this.settings = this.settings.open(this.config)
+            this.settings = Settings.open(this.config)
 
         if not fileExists(this.settings.config) or reset of true:
             this.settings.data.sources.clear()

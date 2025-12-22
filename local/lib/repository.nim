@@ -55,6 +55,13 @@ begin Repository:
     proc hash*(): Hash =
         result = this.hash
 
+    proc validateUrl*(url: string): void {. static .} =
+        if url.startsWith($paths.getCurrentDir()):
+            raise newException(
+                ValueError,
+                fmt "repository at '{url}' should not be in your working directory"
+            )
+
     proc qualifyUrl*(url: string): string {. static .} =
         var
             uri = parseUri(url)
@@ -95,21 +102,6 @@ begin Repository:
 
         result = strip($uri, leading = false, chars = {'/'})
 
-    proc validateUrl*(url: string): void {. static .} =
-        let
-            qualifiedUrl = self.qualifyUrl(url)
-        var
-            error: int
-            output: string
-
-        if not qualifiedUrl.startsWith($paths.getCurrentDir()):
-            error = percy.execCmdCapture(output, @[fmt "git ls-remote '{qualifiedUrl}' 'null'"])
-        else:
-            error = 1
-
-        if error:
-            raise newException(ValueError, fmt "repository at '{url}' does not seem to exist")
-
     method init*(url: string): void {. base .} =
         this.url = self.qualifyUrl(url)
         this.hash = hash(toLower(this.url))
@@ -140,6 +132,10 @@ begin Repository:
         result = dirExists(this.cacheDir)
 
     method exists*(): bool {. base .} =
+        var
+            status: int
+            output: string
+
         result = false
 
         if this.cacheExists:
@@ -147,8 +143,12 @@ begin Repository:
         else:
             try:
                 if this.stale:
-                    self.validateUrl(this.url)
-                result = true
+                    status = percy.execCmdCapture(output, @[
+                        fmt "git ls-remote '{this.url}' 'null'"
+                    ])
+
+                    if status == 0:
+                        result = true
             except:
                 discard
 

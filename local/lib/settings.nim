@@ -25,6 +25,9 @@ type
         config*: string
 
 begin Settings:
+    method init*(): void {. base .} =
+        discard
+
     method hasName*(url: string): bool {. base .} =
         result = false
         for name, value in this.index:
@@ -99,68 +102,36 @@ begin Settings:
                     fmt "source @ '{key}' contains an invalid value: {getCurrentExceptionMsg()}"
                 )
 
+    #[
+        Validates meta information from a JSON config file (currently not used)
+    ]#
     method validateMeta(node: JsonNode): void {. base .} =
         discard
 
-    method build(node: JsonNode): void {. base .} =
-        try:
-            if node.kind != JObject:
-                raise newException(ValueError, "must be an object.")
-            for key, value in node:
-                case key:
-                    of "meta":
-                        this.validateMeta(value)
+    #[
+        Save the configuration and the index.
+    ]#
+    method saveIndex*(): void {. base .} =
+        writeFile(percy.target / "index." & this.config, pretty(%(this.index)))
 
-                    of "sources":
-                        this.validateSources(value)
-                        for name, url in value:
-                            this.data.sources[name] = Source.init(
-                                this.getRepository(getStr(url))
-                            )
-
-                    of "packages":
-                        this.validatePackages(value)
-                        for name, url in value:
-                            this.data.packages[name] = Package.init(
-                                this.getRepository(getStr(url))
-                            )
-
-                    else:
-                        raise newException(ValueError, fmt "unknown configuration key `{key}`")
-
-        except ValueError:
-            raise newException(
-                ValueError,
-                (fmt "Invalid {percy.name}.json, ") & getCurrentExceptionMsg()
-            )
-
-    method load*(config: string = percy.name & ".json"): void {. base .} =
-        var
-            node: JsonNode
-        let
-            index = percy.target / "index." & config
-
-        this.config = config
-
-        if fileExists(this.config):
-            node = parseJson(readFile(this.config))
-
-            this.build(node)
-
-        if fileExists(index):
-            this.index = parseJson(readFile(index)).to(OrderedTable[string, string])
-
-    method open*(config: string = percy.name & ".json"): Settings {. base .} =
-        this.load(config)
-        result = this
-
+    #[
+        Save the configuration and the index.
+    ]#
     method save*(): void {. base .} =
         writeFile(this.config, pretty(%this.data))
+        this.saveIndex()
 
-    method index*(): void {. base .} =
+    #[
+        Takes all the active sources and packages on this object and constructs an index then
+        writes and index file to based on the configuraiton name.
+    ]#
+    method index(): void {. base .} =
         var
             aliases = initOrderedTable[string, string]()
             resolved: OrderedTable[string, string]
+
+        if not dirExists(percy.target):
+            createDir(percy.target)
 
         for name, source in this.data.sources:
             let
@@ -209,25 +180,26 @@ begin Settings:
 
         this.index = pairs.reversed().toOrderedTable()
 
-        writeFile(percy.target / "index." & this.config, $(%(this.index)))
+    #[
 
-
-    method prepare*(reindex: bool = false): void {. base .} =
+    ]#
+    method prepare*(force: bool = false): void {. base .} =
         let
             index = percy.target / "index." & this.config
+            cacheDir = percy.getAppCacheDir()
         var
-            refresh = false
+            refresh = force
             updated = false
 
-        if not dirExists(percy.target):
-            createDir(percy.target)
+        if not dirExists(cacheDir):
+            createDir(cacheDir)
 
         for name, source in this.data.sources:
             case source.repository.clone():
                 of RCloneCreated:
                     updated = true
                 of RCloneExists:
-                    case source.repository.update(reindex):
+                    case source.repository.update(force):
                         of RUpdated:
                             updated = true
                         else:
@@ -238,38 +210,96 @@ begin Settings:
                 of RCloneCreated:
                     updated = true
                 of RCloneExists:
-                    case package.repository.update(reindex):
+                    case package.repository.update(force):
                         of RUpdated:
                             updated = true
                         else:
                             discard
-        if reindex:
-            removeFile(index)
 
+        #
+        # Determine if we need to re-index and refresh.  There are a handful of conditions for
+        # when this can occur.
+        #
         if not fileExists(index):
             refresh = true
-        elif getLastModificationTime(index) > getLastModificationTime(this.config):
-            refresh = true
-        elif updated:
+        elif getLastModificationTime(this.config) > getLastModificationTime(index):
             refresh = true
         else:
             discard
 
-        if refresh:
+        if refresh or updated:
             this.index()
+            this.saveIndex()
+        else:
+            this.index = parseJson(readFile(index)).to(OrderedTable[string, string])
+
+    #[
+        Validates a JSON configuration and builds the internal settings data from that
+        configuration.  This is used internally by load().
+    ]#
+    method build(node: JsonNode): void {. base .} =
+        try:
+            if node.kind != JObject:
+                raise newException(ValueError, "must be an object.")
+            for key, value in node:
+                case key:
+                    of "meta":
+                        this.validateMeta(value)
+
+                    of "sources":
+                        this.validateSources(value)
+                        for name, url in value:
+                            this.data.sources[name] = Source.init(
+                                this.getRepository(getStr(url))
+                            )
+
+                    of "packages":
+                        this.validatePackages(value)
+                        for name, url in value:
+                            this.data.packages[name] = Package.init(
+                                this.getRepository(getStr(url))
+                            )
+
+                    else:
+                        raise newException(ValueError, fmt "unknown configuration key `{key}`")
+
+        except ValueError:
+            raise newException(
+                ValueError,
+                (fmt "Invalid {percy.name}.json, ") & getCurrentExceptionMsg()
+            )
+
+    #[
+        Loads a configuration
+    ]#
+    method load(config: string = percy.name & ".json"): void {. base .} =
+        var
+            node: JsonNode
+        let
+            index = percy.target / "index." & config
+
+        this.config = config
+
+        #[
+            If the file exists load it and build our source/package data from it.
+        ]#
+        if fileExists(this.config):
+            node = parseJson(readFile(this.config))
+            this.build(node)
+
+        #[
+            If no file existed, we don't have any source/package data, but we'll run prepare
+            in the event we do, which will check that our config files are at least created,
+            as well as our vendor dir and, if we did have source/package data, will clone and
+            update those repositories if necessary.
+        ]#
+        this.prepare()
 
 
-shape Settings: @[
-    Delegate(
-        call: DelegateHook as (
-            block:
-                result = shape.init()
+    #[
+        Loads a configuration and returns a Settings object
+    ]#
+    proc open*(config: string = percy.name & ".json"): Settings {. static .} =
+        result = self.init()
+        result.load(config)
 
-                let
-                    cacheDir = percy.getAppCacheDir()
-
-                if not dirExists(cacheDir):
-                    createDir(cacheDir)
-        )
-    )
-]

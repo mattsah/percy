@@ -37,7 +37,15 @@ begin SetCommand:
                     info fmt "  Error: {getCurrentExceptionMsg()}"
                     return 1
 
-        if not repository.exists:
+        try:
+            Repository.validateUrl(repository.url)
+
+            if not repository.exists:
+                raise newException(
+                    ValueError,
+                    fmt "could not reach repository at {setUrl}"
+                )
+        except:
             fail fmt "Invalid url specified"
             info fmt "  Error: {getCurrentExceptionMsg()}"
             return 2

@@ -43,8 +43,8 @@ begin BaseCommand:
         result = 0
 
         this.config = console.getOpt("config")
+        this.settings = Settings.open(this.config)
         this.verbosity = parseInt(console.getOpt("verbosity"))
-        this.settings = this.app.get(Settings).open(this.config)
 
 begin BaseGraphCommand:
     method execute*(console: Console): int =
