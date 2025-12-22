@@ -113,9 +113,30 @@ begin BaseGraphCommand:
 
         for commit in solution:
             let
+                currentUrl = commit.repository.url
                 workTrees = commit.repository.workTrees
                 workDir = vendorDir / this.settings.getName(commit.repository.url)
-            if workTrees.hasKey(workDir):
+
+            #
+            # If the workDir is not in the current worktree, it either exists and is something
+            # else or it doesn't and we create it.
+            #
+            if not workTrees.hasKey(workDir):
+                if dirExists(workDir):
+                    if not force:
+                        info fmt "Skip '{workDir}': non-worktree of {currentUrl} (force with -f)"
+                    else:
+                        # Delete and recreate
+                        deleteDirs.incl(workDir)
+                        createDirs.incl(workDir)
+                else:
+                    # Just create
+                    createDirs.incl(workDir)
+            else:
+                let
+                    branch = workTrees[workDir].branch
+                    head = workTrees[workDir].head
+
                 percy.execIn(
                     ExecHook as (
                         block:
@@ -151,25 +172,17 @@ begin BaseGraphCommand:
                     # We only bother to update workdirs where the head does not match the commit
                     # id.
                     #
-                    if workTrees[workDir].head != commit.id:
+                    if head != commit.id:
                         #
                         # We only update the workdir if a branch is not check out as a checked
                         # out branch likely indicates the person is working on it.  If the local
                         # repository is stale, it will not have updated to the latest ref so we
                         # want to retain the branch head.
                         #
-                        if not force and workTrees[workDir].branch.len != 0:
-                            info fmt "Skip '{workDir}': branch is in use (force with -f)"
+                        if not force and branch.len != 0:
+                            info fmt "Skip '{workDir}': using branch `{branch}` (force with -f)"
                         else:
                             updateDirs.incl(workDir)
-            else:
-                if dirExists(workDir):
-                    if not force:
-                        info fmt "Skip '{workDir}': not of {commit.repository.url} (force with -f)"
-                    else:
-                        deleteDirs.incl(workDir)
-                else:
-                    createDirs.incl(workDir)
 
         #
         # Report changes
