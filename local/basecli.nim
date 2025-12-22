@@ -106,7 +106,7 @@ begin BaseGraphCommand:
 
         #
         # Loop through all the commits in our solution and build out their existing workTrees
-        # and their workDir.  Error if there appears to be cahnges and/or no appropriate
+        # and their workDir.  Error if there appears to be changes and/or no appropriate
         # correspondance.  The logic in here will exclude from deleteDirs if the package can
         # be updated and/or parent dirs, if they are schedule for delete.
         #
@@ -126,34 +126,46 @@ begin BaseGraphCommand:
                     workDir
                 )
 
+                #
+                # If the user has any unsaved changes we want to be more careful.
+                #
                 if output.len > 0: #optimized
                     if not force:
-                        raise newException(
-                            ValueError,
-                            fmt "'{workDir}' exists, but is has changes"
-                        )
+                        info fmt "Skip '{workDir}': exists, but has changes (force with -f)"
                     else:
                         deleteDirs.incl(workDir)
                 else:
                     var
                         safeDirs = initHashSet[string]()
+
                     deleteDirs.excl(workDir)
 
                     for dir in deleteDirs:
                         if workDir.startsWith(dir & "/"):
                             safeDirs.incl(dir)
+
                     for dir in safeDirs:
                         deleteDirs.excl(dir)
 
+                    #
+                    # We only bother to update workdirs where the head does not match the commit
+                    # id.
+                    #
                     if workTrees[workDir].head != commit.id:
-                        updateDirs.incl(workDir)
+                        #
+                        # We only update the workdir if a branch is not check out as a checked
+                        # out branch likely indicates the person is working on it.  If the local
+                        # repository is stale, it will not have updated to the latest ref so we
+                        # want to retain the branch head.
+                        #
+                        if not force and workTrees[workDir].branch.len != 0:
+                            info fmt "Skip '{workDir}': branch is in use (force with -f)"
+                        else:
+                            updateDirs.incl(workDir)
             else:
                 if dirExists(workDir):
                     if not force:
-                        raise newException(
-                            ValueError,
-                            fmt "'{workDir}' exists, but is not a workTree of {commit.repository.url}"
-                        )
+                        info fmt "Skip '{workDir}': not of {commit.repository.url} (force with -f)"
                     else:
                         deleteDirs.incl(workDir)
                 else:

@@ -86,6 +86,9 @@ begin RemoveCommand:
 
         if not isRemoved:
             fail fmt "Package '{package}' does not seem to be currently required"
+            if not repository.url.contains("://"):
+                info fmt "  Hint: you may have added it as a URL instead of a package alias"
+
             return 1
 
         newContent = parser.render(this.nimbleMap, this.nimbleInfo)
