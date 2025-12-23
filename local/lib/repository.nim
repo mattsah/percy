@@ -179,7 +179,7 @@ begin Repository:
                 fmt "git fetch origin -f --prune",
                 fmt "'+refs/tags/*:refs/{percy.name}/*'",
                 fmt "'+refs/heads/*:refs/{percy.name}/*'",
-                fmt "HEAD"
+                fmt "'HEAD'"
             ],
             output
         )
