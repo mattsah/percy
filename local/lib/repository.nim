@@ -184,7 +184,7 @@ begin Repository:
             output
         )
 
-        if status != 0: # optimized
+        if status != 0 or not fileExists(this.cacheDir / "FETCH_HEAD"): # optimized
             raise newException(ValueError, fmt "failed fetching from {this.url}: {output}")
 
         result = output.len > 0
