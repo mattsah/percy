@@ -24,8 +24,6 @@ The goal of Percy is to actually make package management for nim that "just work
 
 ... or see the next section for a more general introduction.
 
-## 
-
 ## Quick Start
 
 ### Installing Percy
