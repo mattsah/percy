@@ -9,6 +9,7 @@ bin = @[
 ]
 
 installDirs.add("local")
+paths.add("local")
 
 requires "nim >= 2.2.6"
 requires "semver >= 1.2.0"
