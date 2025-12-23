@@ -219,20 +219,19 @@ begin Settings:
         # Determine if we need to re-index and refresh.  There are a handful of conditions for
         # when this can occur.
         #
-        if not fileExists(index):
-            refresh = true
-        elif fileExists(this.config):
-            if getLastModificationTime(this.config) > getLastModificationTime(index):
+        if fileExists(this.config):
+            if not fileExists(index):
+                refresh = true
+            elif getLastModificationTime(this.config) > getLastModificationTime(index):
                 refresh = true
             else:
                 discard
-        else:
-            discard
 
         if refresh or updated:
             this.index()
             this.saveIndex()
-        else:
+
+        if fileExists(index):
             this.index = parseJson(readFile(index)).to(OrderedTable[string, string])
 
     #[
