@@ -23,7 +23,7 @@ type
         stale: bool
         shaHash: string
         cacheDir: string
-        origin: string
+        original: string
         url: string
 
     Commit* = ref object of Class
@@ -42,7 +42,6 @@ type
         repository*: Repository
         commit*: Commit
         path*: string
-
 
 begin Commit:
     proc `$`*(): string =
@@ -107,7 +106,7 @@ begin Repository:
         this.hash = hash(toLower(this.url))
         this.shaHash = toLower($secureHash(this.url))
         this.cacheDir = percy.getAppCacheDir(this.shaHash)
-        this.origin = url
+        this.original = url
 
         let
             head = this.cacheDir / "FETCH_HEAD"
@@ -119,8 +118,8 @@ begin Repository:
     method url*(): string {. base .} =
         result = this.url
 
-    method origin*(): string {. base .} =
-        result = this.origin
+    method original*(): string {. base .} =
+        result = this.original
 
     method shaHash*(): string {. base .} =
         result = this.shaHash
@@ -237,7 +236,7 @@ begin Repository:
         if not result:
             raise newException(ValueError, fmt "could not determine head on {this.url}")
 
-    method commits*(): OrderedSet[Commit] {. base .} =
+    method commits*(newest: bool = false): OrderedSet[Commit] {. base .} =
         const
             tag  = "%(refname:short)"
             hash = "%(if:equals=tag)%(objecttype)%(then)%(*objectname)%(else)%(objectname)%(end)"
@@ -248,7 +247,7 @@ begin Repository:
             output: string
             head: string
 
-        discard this.update()
+        discard this.update(newest)
 
         status = this.exec(
             @[

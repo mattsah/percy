@@ -104,35 +104,37 @@ begin InitCommand:
             nowrite = 0
             inBlock = false
             hasTests = false
+            hasBuild = false
             configIn: seq[string]
             configOut: seq[string]
             directory: string
             output: string
             error: int
         let
+            reset = parseBool(console.getOpt("reset"))
+            without = parseBool(console.getOpt("without-tasks"))
             target = console.getArg("target")
-            reset = console.getOpt("reset")
             repo = console.getArg("repo")
 
-        if repo:
+        if repo != ".":
             let
                 repository = Repository.init(repo)
 
-            if target.len == 0:
+            if target == ".":
                 directory = repository.url[repository.url.rfind('/')+1..^1]
             else:
                 directory = target
 
             if dirExists(directory) or fileExists(directory):
-                fail fmt "Cannot initialize repository in {target}, already exists"
+                fail fmt "Cannot initialize repository in {directory}, already exists"
                 return 1
 
             error = percy.execCmdCaptureAll(output, @[
-                fmt "git clone {repository.url} {target}"
+                fmt "git clone {repository.url} {directory}"
             ])
 
             if error:
-                fail fmt "Cannot initialize repository in {target}, clone failed"
+                fail fmt "Cannot initialize repository in {directory}, clone failed"
                 info indent(output, 2)
                 return 2
 
@@ -140,7 +142,7 @@ begin InitCommand:
 
             this.settings = Settings.open(this.config)
 
-        if not fileExists(this.settings.config) or reset of true:
+        if not fileExists(this.settings.config) or reset:
             this.settings.data.sources.clear()
             this.settings.data.packages.clear()
 
@@ -153,16 +155,14 @@ begin InitCommand:
             configIn = readFile("config.nims").split('\n')
 
         for line in configIn:
+            if line.strip().startsWith("task build,"):
+                hasBuild = nowrite == 0
+            if line.strip().startsWith("task test,"):
+                hasTests = nowrite == 0
+
             if inBlock and line.len > 0 and line[0] != ' ':
                 inBlock = false
                 dec nowrite
-            if not inBlock and reset:
-                if line.startsWith("task build,"):
-                    inBlock = true
-                    inc nowrite
-                    continue
-                if line.startsWith("task test,"):
-                    hasTests = nowrite == 0
             if not inBlock and line == fmt "# <{percy.name}>":
                 inc nowrite
                 continue
@@ -180,26 +180,27 @@ begin InitCommand:
         config = configOut.join("\n").strip()
         config = config & "\n\n" & this.getPaths().strip()
 
-        if console.getOpt("writeTasks") of true:
+        if not hasBuild and not without:
             config = config & "\n\n" & this.buildTask.strip()
 
-            if not hasTests:
-                config = config & "\n\n" & this.testTask.strip()
+        if not hasTests and not without:
+            config = config & "\n\n" & this.testTask.strip()
 
         writeFile("config.nims", config)
 
         this.settings.prepare(true)
         this.settings.save()
 
-        if repo:
-            error = percy.execCmdCaptureAll(output, @[
-                fmt "{getAppFilename()} install"
-            ])
+        if repo != ".":
+            let
+                subConsole = this.app.get(Console, false)
+            var
+                command = @["install"]
 
-            if error:
-                fail fmt "Could not complete installation"
-                info indent(output, 2)
-                return 3
+            if this.verbosity:
+                command.add("-v:" & $this.verbosity)
+
+            result = subConsole.run(command)
 
         return 0
 
@@ -210,10 +211,12 @@ shape InitCommand: @[
         args: @[
             Arg(
                 name: "repo",
+                default: ".",
                 description: "A repository to clone, if empty current directory is intialized"
             ),
             Arg(
                 name: "target",
+                default: ".",
                 description: "The directory to clone to, if empty named after repository"
             )
         ],
@@ -221,14 +224,14 @@ shape InitCommand: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
             Opt(
-                flag: 'w',
-                name: "writeTasks",
-                description: "Include nim build/test tasks"
-            ),
-            Opt(
                 flag: 'r',
                 name: "reset",
-                description: "Reset the sources to standard nim and clear existing tasks"
+                description: "Reset the sources to standard nim"
+            ),
+            Opt(
+                flag: 'w',
+                name: "without-tasks",
+                description: "Do not include nim build/test tasks"
             )
         ]
     )

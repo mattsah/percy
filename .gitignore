@@ -4,6 +4,7 @@ nimble.paths
 nimble.lock
 nimble.develop
 nimbledeps
+percy.lock
 test.nim
 vendor
 deps

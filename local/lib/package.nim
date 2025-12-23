@@ -8,7 +8,7 @@ type
 
 begin Package:
     proc `%`*(): JsonNode =
-        result = newJString(this.repository.origin)
+        result = newJString(this.repository.original)
 
     proc validateName*(name: string): void {. static .} =
         discard

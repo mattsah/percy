@@ -9,6 +9,9 @@ export
     semver
 
 type
+    MissingRepositoryException* = ref object of CatchableError
+        repository*: Repository
+
     ConstraintHook* = proc(v: Version): bool
 
     Constraint* = ref object of Class
@@ -26,6 +29,7 @@ type
 
     DepGraph* = ref object of Class
         quiet: bool
+        newest: bool
         stack: seq[Requirement]
         commits: OrderedTable[Repository, OrderedSet[Commit]]
         tracking: OrderedTable[Repository, OrderedSet[Commit]]
@@ -75,6 +79,8 @@ begin Requirement:
         result = this.repository
 
 begin DepGraph:
+    method stack*(): seq[Requirement] {. base .} =
+        result = this.stack
 
     #[
     ##
@@ -208,10 +214,11 @@ begin DepGraph:
     ##
     ]#
     method reportStack*(): void {. base .} =
-        print fmt "Graph: Current Package Stack ({$this.stack.len})"
-
+        print fmt "Graph Package Stack Report"
+        print fmt "> Size: {$this.stack.len}"
+        print fmt "> Stack:"
         for i, requirement in this.stack:
-            print fmt """{alignLeft("", (i+1) * 2, ' ')}""", 0
+            print fmt """    {alignLeft("", (i+1), ' ')}""", 0
             if i != 0:
                 print " ↳ ", 0
             print fmt """{requirement.package} {requirement.versions}"""
@@ -275,16 +282,16 @@ begin DepGraph:
     method addRepository*(repository: Repository): void {. base .} =
         if not this.commits.hasKey(repository):
             if not repository.exists:
-                raise newException(
-                    ValueError,
-                    fmt """required repository '{repository.url}' does not seem to exist"""
+                raise MissingRepositoryException(
+                    msg: fmt "required repository '{repository.original}' does not seem to exist",
+                    repository: repository
                 )
 
             if not this.quiet:
                 print fmt "Graph: Adding Repository (Scanning Available Tags)"
                 print fmt "  Repository: {repository.url}"
 
-            this.commits[repository] = repository.commits
+            this.commits[repository] = repository.commits(this.newest)
 
     #[
     ##
@@ -343,11 +350,12 @@ begin DepGraph:
     #[
     ##
     ]#
-    method build*(nimbleInfo: NimbleFileInfo): void {. base .} =
+    method build*(nimbleInfo: NimbleFileInfo, newest: bool = false): void {. base .} =
         let
             repository = this.settings.getRepository(getCurrentDir())
             commit = Commit(repository: repository)
 
+        this.newest = newest
         this.requirements[(commit.repository, commit.version)] = newSeq[Requirement]()
 
         for requirements in nimbleInfo.requires:

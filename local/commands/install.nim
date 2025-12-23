@@ -9,22 +9,45 @@ begin InstallCommand:
     method execute(console: Console): int =
         result = super.execute(console)
 
-        var
-            checkouts: seq[Checkout]
-            results: SolverResult
         let
-            graph = this.getGraph()
-            solver = Solver.init()
+            force = parseBool(console.getOpt("force"))
 
-        graph.build(this.nimbleInfo)
+        if fileExists("percy.lock"):
+            var
+                solution: Solution
+                checkouts: seq[Checkout]
 
-        if this.verbosity > 0:
-            graph.report()
+            for commit in parseJson(readFile("percy.lock")):
+                let
+                    id = commit["id"].getStr()
+                    version = commit["version"].to(Version)
+                    repository = Repository.init(commit["repository"].getStr())
+                    info = commit["info"].to(NimbleFileInfo)
 
-        results = solver.solve(graph)
+                if not repository.cacheExists:
+                    discard repository.clone()
 
-        if isSome(results.solution):
-            checkouts = this.loadSolution(results.solution.get())
+                solution.add(Commit(
+                    id: id,
+                    version: version,
+                    repository: repository,
+                    info: info
+                ))
+
+            checkouts = this.loadSolution(solution, force)
+
+        else:
+            let
+                subConsole = this.app.get(Console, false)
+            var
+                command = @["update", "-n"]
+
+            if this.verbosity:
+                command.add("-v:" & $this.verbosity)
+            if force:
+                command.add("-f")
+
+            result = subConsole.run(command)
 
 shape InstallCommand: @[
     Command(
@@ -33,6 +56,11 @@ shape InstallCommand: @[
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
+            Opt(
+                flag: 'f',
+                name: "force",
+                description: "Force checkouts which may otherwise destroy unsaved work in vendor"
+            )
         ]
     )
 ]

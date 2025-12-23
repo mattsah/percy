@@ -70,6 +70,7 @@ begin BaseGraphCommand:
             error: int
             output: string
             pathList: seq[string]
+            retainDirs: HashSet[string]
             deleteDirs: OrderedSet[string]
             updateDirs: OrderedSet[string]
             createDirs: OrderedSet[string]
@@ -77,136 +78,113 @@ begin BaseGraphCommand:
         let
             vendorDir = getCurrentDir() / percy.target
 
-        #
-        # Find all folders which we should, provisionally, delete -- based on the fact that they:
-        # 1. Are actually a directory
-        # 2. Are not a symlink (we don't want to eff with those)
-        # 3. Contain files (not just other directories)
-        #
-
-        proc scanDeletes(dir: string): HashSet[string] =
-            var
-                delCount = 0
-                subCount = 0
-            for item in walkDir(dir):
-                inc subCount
-                if not dirExists(item.path):
-                    continue
-                if symLinkExists(item.path):
-                    continue
-                if percy.hasFile(item.path):
-                    result.incl(item.path)
-                    inc delCount
-                else:
-                    result.incl(scanDeletes(item.path))
-            if subCount == delCount:
-                result.incl(dir)
-
-        deleteDirs = scanDeletes(vendorDir).toSeq().sortedByIt(it.len).reversed().toOrderedSet()
+        if this.verbosity > 0:
+            print "Loading Solution"
 
         #
-        # Loop through all the commits in our solution and build out their existing workTrees
-        # and their workDir.  Error if there appears to be changes and/or no appropriate
-        # correspondance.  The logic in here will exclude from deleteDirs if the package can
-        # be updated and/or parent dirs, if they are schedule for delete.
+        # Loop through all of our workDirs based commits in the solution and the corresponding
+        # work tree.  Mark directories depending on their state, we can either:
+        # - retain
+        # - create
+        # - update
         #
-
+        # Deletes are handled after this as we want to cleanup directories no longer being used.
+        #
         for commit in solution:
             let
                 currentUrl = commit.repository.url
                 workTrees = commit.repository.workTrees
                 workDir = vendorDir / this.settings.getName(commit.repository.url)
 
-            #
-            # If the workDir is not in the current worktree, it either exists and is something
-            # else or it doesn't and we create it.
-            #
             if not workTrees.hasKey(workDir):
-                if dirExists(workDir):
-                    if not force:
-                        info fmt "Skip '{workDir}': non-worktree of {currentUrl} (force with -f)"
-                    else:
-                        # Delete and recreate
-                        deleteDirs.incl(workDir)
-                        createDirs.incl(workDir)
+                if dirExists(workDir) and not force:
+                    info fmt "> Skip: '{workDir}': non-worktree of {currentUrl} (force with -f)"
+                    retainDirs.incl(workDir)
                 else:
-                    # Just create
                     createDirs.incl(workDir)
             else:
                 let
                     branch = workTrees[workDir].branch
                     head = workTrees[workDir].head
 
-                percy.execIn(
-                    ExecHook as (
-                        block:
-                            error = percy.execCmdCapture(output, @[
-                                fmt "git status --porcelain"
-                            ])
-                    ),
-                    workDir
-                )
-
-                #
-                # If the user has any unsaved changes we want to be more careful.
-                #
-                if output.len > 0: #optimized
-                    if not force:
-                        info fmt "Skip '{workDir}': exists, but has changes (force with -f)"
+                if head == commit.id: # We can just retain the current state if it matches
+                    retainDirs.incl(workDir)
+                else: # If it doesn't match we want to check if there's a branch checked out
+                    if branch.len != 0 and not force: # Someone may be working on something
+                        info fmt "> Skip: '{workDir}': using branch `{branch}` (force with -f)"
+                        retainDirs.incl(workDir)
                     else:
-                        deleteDirs.incl(workDir)
+                        updateDirs.incl(workDir)
+
+        proc scanDeletes(dir: string): void =
+            var
+                delCount = 0
+                subCount = 0
+            for item in walkDir(dir):
+                inc subCount
+                if not dirExists(item.path): # We're only looking for directories
+                    continue
+                if symLinkExists(item.path): # Enable people to link to work on things
+                    continue
+                if retainDirs.contains(item.path):
+                    continue
+                if percy.hasFile(item.path):
+                    if dirExists(item.path / ".git"): # Check if this is a git directory
+                        percy.execIn(
+                            ExecHook as (
+                                block:
+                                    error = percy.execCmdCapture(output, @[
+                                        fmt "git status --porcelain"
+                                    ])
+                            ),
+                            item.path
+                        )
+
+                        if not error and output.len > 0 and not force:
+                            info fmt "> Skip: '{item.path}': has unsaved changes (force with -f)"
+                            if updateDirs.contains(item.path):
+                                updateDirs.excl(item.path)
+
+                    if not updateDirs.contains(item.path):
+                        deleteDirs.incl(item.path)
+                        inc delCount
                 else:
-                    var
-                        safeDirs = initHashSet[string]()
+                    scanDeletes(item.path)
+            if subCount == delCount:
+                deleteDirs.incl(dir)
 
-                    deleteDirs.excl(workDir)
-
-                    for dir in deleteDirs:
-                        if workDir.startsWith(dir & "/"):
-                            safeDirs.incl(dir)
-
-                    for dir in safeDirs:
-                        deleteDirs.excl(dir)
-
-                    #
-                    # We only bother to update workdirs where the head does not match the commit
-                    # id.
-                    #
-                    if head != commit.id:
-                        #
-                        # We only update the workdir if a branch is not check out as a checked
-                        # out branch likely indicates the person is working on it.  If the local
-                        # repository is stale, it will not have updated to the latest ref so we
-                        # want to retain the branch head.
-                        #
-                        if not force and branch.len != 0:
-                            info fmt "Skip '{workDir}': using branch `{branch}` (force with -f)"
-                        else:
-                            updateDirs.incl(workDir)
+        scanDeletes(vendorDir)
 
         #
         # Report changes
         #
+
+        deleteDirs = deleteDirs.toSeq().sortedByIt(it.len).reversed().toOrderedSet()
+        updateDirs = updateDirs.toSeq().sortedByIt(it.len).reversed().toOrderedSet()
+        createDirs = createDirs.toSeq().sortedByIt(it.len).reversed().toOrderedSet()
 
         let # optimized
             hasDeleteDirs = deleteDirs.len > 0
             hasUpdateDirs = updateDirs.len > 0
             hasCreateDirs = createDirs.len > 0
 
-        if this.verbosity > 1 and (hasDeleteDirs or hasUpdateDirs or hasCreateDirs):
-            print fmt "Solution: Changes Required"
-            if hasDeleteDirs:
-                print fmt "  Delete:"
-                for dir in deleteDirs:
-                    print fmt "    {dir}"
-            if hasUpdateDirs:
-                print fmt "  Update:"
-                for dir in updateDirs:
-                    print fmt "    {dir}"
-            if hasCreateDirs:
-                print fmt "  Create:"
-                for dir in createDirs:
-                    print fmt "    {dir}"
+        if this.verbosity > 0:
+            if hasDeleteDirs or hasUpdateDirs or hasCreateDirs:
+                print fmt "> Solution: Changes Required"
+                if hasDeleteDirs:
+                    print fmt "> Delete:"
+                    for dir in deleteDirs:
+                        print fmt ">    {dir}"
+                if hasUpdateDirs:
+                    print fmt ">  Update:"
+                    for dir in updateDirs:
+                        print fmt ">    {dir}"
+                if hasCreateDirs:
+                    print fmt ">  Create:"
+                    for dir in createDirs:
+                        print fmt ">    {dir}"
+            else:
+                print fmt "> Solution: There No Applicable Changes"
 
         #
         # Perform loading
@@ -216,6 +194,7 @@ begin BaseGraphCommand:
 
         for dir in deleteDirs:
             removeDir(dir)
+
         for commit in solution:
             let
                 relDir = this.settings.getName(commit.repository.url)

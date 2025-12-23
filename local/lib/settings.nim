@@ -4,8 +4,7 @@ import
     std/hashes,
     lib/source,
     lib/package,
-    lib/repository,
-    mininim/dic
+    lib/repository
 
 export
     source,
@@ -222,8 +221,11 @@ begin Settings:
         #
         if not fileExists(index):
             refresh = true
-        elif getLastModificationTime(this.config) > getLastModificationTime(index):
-            refresh = true
+        elif fileExists(this.config):
+            if getLastModificationTime(this.config) > getLastModificationTime(index):
+                refresh = true
+            else:
+                discard
         else:
             discard
 

@@ -67,10 +67,21 @@ begin RequireCommand:
                 writeFile(this.nimbleFile, newContent)
             else:
                 discard
-        except:
+        except Exception as e:
             graph.reportStack()
             fail fmt "Failed updating with new requirement"
-            info fmt "  Error: {getCurrentExceptionMsg()}"
+            info fmt "> Error: {e.msg}"
+
+            with e of MissingRepositoryException:
+                info fmt "> Tried: {e.repository.url}"
+                if graph.stack.len > 1 and not e.repository.url.contains("://"):
+                    info fmt """
+                    > Hint: A package may be referring to another as an unexpected name.
+                            Use `percy set source` to add a repository that can resolve
+                            the package, or, use `percy set package` set directly.
+                    """
+
+        finally:
             return 3
 
 shape RequireCommand: @[
