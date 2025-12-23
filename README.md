@@ -91,13 +91,19 @@ percy update -f
 Adding a source (a git repository with `packages.json` providing a list of packages)
 
 ```bash
-percy set source mininim cb://mininm/packages
+percy set source cb://mininim/packages mininim
+```
+
+Shortented version (uses lower '/' stripped path as alias):
+
+```bash
+percy set source cb://mininim/packages
 ```
 
 Add a package (such as overloading to a fork or working with one still in development)
 
 ```bash
-percy set package semver gh://myforks/semver
+percy set package gh://myforks/semver semver
 ```
 
 Removing a source:
@@ -320,7 +326,7 @@ To add more packages by name, you'll need to add either a _source_ or a _package
 You can add a source via:
 
 ```bash
-percy set source <name> <url>
+percy set source <url> [<alias>]
 ```
 
 The `<url>` must point to a git repository containing a `packages.json` file in its root that is schema-compatible with the one found in `nim-lang/packages`.  Note, however, the only two required fields are `name` and `url` .  As an example, let's take a look at the [Mininim](https://github.com/primd-cooperative/mininim) framework's package repository's file, located [here](https://github.com/primd-cooperative/mininim-packages/blob/main/packages.json).  Note it only the two fields are added:
@@ -338,7 +344,7 @@ The `<url>` must point to a git repository containing a `packages.json` file in 
 To add the official mininim repository to your own Percy configuration, you would execute:
 
 ```bash
-percy set source mininim cb://mininim/packages
+percy set source cb://mininim/packages mininim
 ```
 
 If you wanted to remove it:
@@ -351,16 +357,16 @@ percy unset source mininim
 >
 > Forge style currently supports:
 >
-> - `gh://` or `github://` for GitHub 
+> - `gh://` or `github://` for GitHub
 > - `gl://` or `gitlab://` for GitLab
-> - `cb://` or `codeberg://` for Codeberg 
+> - `cb://` or `codeberg://` for Codeberg
 
 ##### Packages
 
 Adding individual packages is also possible via the `set` command.  The only distinction here is that instead of pointing at a repository that contains a `packages.json` file, you're pointing the package name directly at the git repository.
 
 ```bash
-percy set package neo https://github.com/xTrayambak/neo.git
+percy set package https://github.com/xTrayambak/neo.git neo
 ```
 
 > **NOTE:**  When packages added via the `set package` command or as part of a source repository added with `set source` have a conflicting name, the latter defined URL is _always used_ and with package URLs overwriting URLs provided by sources.
@@ -372,7 +378,7 @@ In the example above, `neo` would now refer to to the URL provided in the exampl
 Because of the way Percy resolves package names (and because they no longer need to be valid identifiers in Nim), you can actually have packages with any name.  It should be noted, however, that if you do this, adding named packages to your `.nimble` files will obviously break any compatibility with other package manager.  For example it is completely possible to do the following:
 
 ```bash
-percy set package mininim/core gh://myfork/mininim-core
+percy set package gh://myfork/mininim-core mininim/core
 ```
 
 > **NOTE:** The package name contains a slash (`/`)
@@ -528,7 +534,7 @@ for repository, commits in this.tracking:
 
 This basically means that repositories are first sorted by the total number of "usable" versions, and then their "usable" versions are sorted as:
 
-1. HEAD 
+1. HEAD
 2. Branches and other non-semver styled tags (Alphabetically)
 3. Version numbers and corresponding build/meta info (Per the `semver` package) for all semver styled tags.
 

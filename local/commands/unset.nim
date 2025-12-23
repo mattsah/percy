@@ -14,20 +14,28 @@ begin UnsetCommand:
             solver = Solver.init()
             unsetType = console.getArg("type")
             unsetAlias = console.getArg("alias")
+        var
+            repository: Repository
 
         case unsetType:
             of "source":
                 if not this.settings.data.sources.hasKey(unsetAlias):
-                    fail fmt "Invalid source alias '{unsetAlias}' specified"
-                    info fmt "  Error: does not appear to be set."
+                    fail fmt "Invalid source alias specified"
+                    info fmt "> Error: does not appear to be set."
+                    info fmt "> Source Alias: {unsetAlias}"
                     return 1
+
+                repository = this.settings.data.sources[unsetAlias].repository
                 this.settings.data.sources.del(unsetAlias)
 
             of "package":
                 if not this.settings.data.packages.hasKey(unsetAlias):
-                    fail fmt "Invalid package alias '{unsetAlias}' specified"
-                    info fmt "  Error: does not appear to be set."
+                    fail fmt "Invalid package alias specified"
+                    info fmt "> Error: does not appear to be set."
+                    info fmt "> Package Alias: {unsetAlias}"
                     return 1
+
+                repository = this.settings.data.packages[unsetAlias].repository
                 this.settings.data.packages.del(unsetAlias)
 
         this.settings.prepare(true)
@@ -38,6 +46,12 @@ begin UnsetCommand:
             this.settings.save()
         except:
             raise getCurrentException() # replace with handling
+
+        print fmt "Successfully unset {unsetType}"
+        print fmt "> Repository: {repository.url}"
+        print fmt "> Package Alias: {unsetAlias}"
+        result = 0
+
 
 shape UnsetCommand: @[
     Command(

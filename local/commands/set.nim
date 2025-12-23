@@ -2,7 +2,8 @@ import
     percy,
     basecli,
     lib/package,
-    lib/source
+    lib/source,
+    std/uri
 
 type
     SetCommand = ref object of BaseGraphCommand
@@ -16,8 +17,12 @@ begin SetCommand:
             solver = Solver.init()
             setUrl = console.getArg("url")
             setType = console.getArg("type")
-            setAlias = console.getArg("alias")
             repository = Repository.init(setUrl)
+        var
+            setAlias = console.getArg("alias")
+
+        if setAlias == "<path of url>":
+            setAlias = parseUri(repository.url).path.toLower().strip(chars = {'/'})
 
         case setType:
             of "source":
@@ -25,16 +30,18 @@ begin SetCommand:
                     Source.validateName(setAlias)
                     this.settings.data.sources[setAlias] = Source.init(repository)
                 except:
-                    fail fmt "Invalid source alias '{setAlias}' specified"
-                    info fmt "  Error: {getCurrentExceptionMsg()}"
+                    fail fmt "Invalid source alias specified"
+                    info fmt "> Error: {getCurrentExceptionMsg()}"
+                    info fmt "> Source Alias: {setAlias}"
                     return 1
             of "package":
                 try:
                     Package.validateName(setAlias)
                     this.settings.data.packages[setAlias] = Package.init(repository)
                 except:
-                    fail fmt "Invalid package alias '{setAlias}' specified"
-                    info fmt "  Error: {getCurrentExceptionMsg()}"
+                    fail fmt "Invalid package alias specified"
+                    info fmt "> Error: {getCurrentExceptionMsg()}"
+                    info fmt "> Package Alias: {setAlias}"
                     return 1
 
         try:
@@ -47,7 +54,7 @@ begin SetCommand:
                 )
         except:
             fail fmt "Invalid url specified"
-            info fmt "  Error: {getCurrentExceptionMsg()}"
+            info fmt ">  Error: {getCurrentExceptionMsg()}"
             return 2
 
         this.settings.prepare(true)
@@ -58,6 +65,11 @@ begin SetCommand:
             this.settings.save()
         except:
             raise getCurrentException() # replace with handling
+
+        print fmt "Successfully added {setType}"
+        print fmt "> Repository: {repository.url}"
+        print fmt "> Package Alias: {setAlias}"
+        result = 0
 
 shape SetCommand: @[
     Command(
@@ -74,12 +86,13 @@ shape SetCommand: @[
                 description: "The type of URL to set"
             ),
             Arg(
-                name: "alias",
-                description: "The alias for the source or package"
-            ),
-            Arg(
                 name: "url",
                 description: "A valid git URL for the source or package repository"
+            ),
+            Arg(
+                name: "alias",
+                default: "<path of url>",
+                description: "The alias for the source or package"
             )
         ]
     )
