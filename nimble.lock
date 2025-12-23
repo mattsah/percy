@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "packages": {
+    "checksums": {
+      "version": "0.2.1",
+      "vcsRevision": "f8f6bd34bfa3fe12c64b919059ad856a96efcba0",
+      "url": "https://github.com/nim-lang/checksums",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "d3c7a1d0c0dee8fa089bd7f4d474e005877b608a"
+      }
+    },
+    "mininim_core": {
+      "version": "0.0.0",
+      "vcsRevision": "25210b41c130e69d0c22e169dd4487843bc42e59",
+      "url": "https://codeberg.org/mininim/core",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "16ad0f74c6547b47d49cf24f4f5a3c0fe8fddf53"
+      }
+    },
+    "mininim_cli": {
+      "version": "0.0.0",
+      "vcsRevision": "cf0086f28b2c79a1775aaaaf83e77fc18b8199a2",
+      "url": "https://codeberg.org/mininim/cli",
+      "downloadMethod": "git",
+      "dependencies": [
+        "mininim_core"
+      ],
+      "checksums": {
+        "sha1": "9e5d0a7a72bdb63fee48afd1ef417106cdd65eff"
+      }
+    },
+    "nim": {
+      "version": "2.2.6",
+      "vcsRevision": "",
+      "url": "https://github.com/nim-lang/Nim.git",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "7e6ca5d37c9e9e537243950e2d1c4bbddb68186d"
+      }
+    },
+    "semver": {
+      "version": "1.2.3",
+      "vcsRevision": "ec7732a4810441a937fe3059494ba338090c4957",
+      "url": "https://github.com/euantorano/semver.nim",
+      "downloadMethod": "git",
+      "dependencies": [],
+      "checksums": {
+        "sha1": "80cf9ba57c55dd1c60bbe8e5ac1a939d7cbb212d"
+      }
+    }
+  },
+  "tasks": {}
+}

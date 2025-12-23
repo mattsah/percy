@@ -7,6 +7,12 @@
 --verbosity:1
 --path:"local"
 
+# begin Nimble config (version 2)
+--noNimblePath
+when withDir(thisDir(), system.fileExists("nimble.paths")):
+  include "nimble.paths"
+# end Nimble config
+
 # <percy>
 when withDir(thisDir(), system.fileExists("vendor/percy.paths")):
     include "vendor/percy.paths"

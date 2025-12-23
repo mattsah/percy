@@ -1,7 +1,6 @@
 *.zst
 nim.cfg
 nimble.paths
-nimble.lock
 nimble.develop
 nimbledeps
 percy.lock
