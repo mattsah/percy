@@ -13,24 +13,24 @@
     },
     "mininim_core": {
       "version": "0.0.0",
-      "vcsRevision": "3938d6961e0d07271c7d01627dbd624a2bfedc27",
+      "vcsRevision": "369586a3bd019b60c913c139928c92a3c193df54",
       "url": "https://codeberg.org/mininim/core",
       "downloadMethod": "git",
       "dependencies": [],
       "checksums": {
-        "sha1": "4f9628d4c6a2ba8d338c6c3ac49ad87e24b717a3"
+        "sha1": "cf8af1a48e41bf599dd248dfbae6bb5e66c276ac"
       }
     },
     "mininim_cli": {
       "version": "0.0.0",
-      "vcsRevision": "cf0086f28b2c79a1775aaaaf83e77fc18b8199a2",
+      "vcsRevision": "c23d092f7dca9a9b4bde27d7517d459dfba3ea5d",
       "url": "https://codeberg.org/mininim/cli",
       "downloadMethod": "git",
       "dependencies": [
         "mininim_core"
       ],
       "checksums": {
-        "sha1": "9e5d0a7a72bdb63fee48afd1ef417106cdd65eff"
+        "sha1": "6871a608e9ddbe354664ac5045e8e2198dc87b38"
       }
     },
     "semver": {
