@@ -18,12 +18,131 @@ The goal of Percy is to actually make package management for nim that "just work
 
 ## Skip To
 
+- [Full User Guide](#user-guide)
 - [Nimble File Support](#nimble-file-support)
 - [Versioning](#versioning)
 
 ... or see the next section for a more general introduction.
 
-## Getting Started
+## 
+
+## Quick Start
+
+### Installing Percy
+
+```bash
+nimble install https://github.com/mattsah/percy
+```
+
+### Initializing a Project
+
+Initializing a project (in the project dir):
+
+```bash
+percy init
+```
+
+Initializing a project (from a repository):
+
+```bash
+percy init cb://mininim/app
+```
+
+Or
+
+```bash
+percy init cb://mininim/app my-new-app
+```
+
+### Installing Dependencies
+
+Installing (from a lock file), if no lock file is present this is equivalent to `update -n`:
+
+```bash
+percy install
+```
+
+With verbose output:
+
+```bash
+percy install -v
+```
+
+### Updating Dependencies
+
+Update to latest compatible versions (write a lock file):
+
+```bash
+percy update
+```
+
+Update ensuring latest is in cache (fetching from remotes):
+
+```bash
+percy update -n
+```
+
+Force updating in an unclean `vendor` directory:
+
+```bash
+percy update -f
+```
+
+### Package Availability
+
+Adding a source (a git repository with `packages.json` providing a list of packages)
+
+```bash
+percy set source mininim cb://mininm/packages
+```
+
+Add a package (such as overloading to a fork or working with one still in development)
+
+```bash
+percy set package semver gh://myforks/semver
+```
+
+Removing a source:
+
+```bash
+percy unset source mininim
+```
+
+Removing a package:
+
+```bash
+percy unset semver
+```
+
+### Working with Dependencies
+
+Set a dependency or change the required versions (updates the project's *.nimble):
+
+```bash
+percy require dotenv ">= 2.0.0"
+```
+
+Or add by URL instead:
+
+```bash
+percy require gh://euantorano/dotenv ">= 2.0.0"
+```
+
+Remove a dependency (by name):
+
+```
+percy remove dotenv
+```
+
+Remove a dependency (by URL)
+
+```
+percy remove gh://euantorano/dotenv
+```
+
+> **NOTE:** It doesn't matter how the dependency was added, you can remove it by either so long as the package name resolves to the same URL.
+
+## User Guide
 
 Percy aims to work with official nim packages and the use of existing `.nimble` files.  In fact, unlike some other solutions, there's no intention of getting rid of the `.nimble` file at all, rather just limiting its use/purpose.
 
@@ -57,7 +176,7 @@ nim build
 Assuming it built fine:
 
 ```bash
-cp bin/percy <somewhere in your path>
+cp bin/percy <somewhere in your path(s)>
 ```
 
 ### Usage
@@ -70,7 +189,11 @@ You can initialize Percy rather easily.  Simply execute the following in your pr
 percy init
 ```
 
-The `init` command will add something like the following to your `config.nims` file:
+The `init` command will add three distinct percy sections to your `config.nims`:
+
+1. Conditional inclusion of `vendor/percy.paths` (see code below)
+2. A `build` task **if** no current `build` task is identified.
+3. A `test` task **if** no current `test` task is identified.
 
 ```nim
 # <percy>
@@ -79,30 +202,31 @@ when withDir(thisDir(), system.fileExists("vendor/percy.paths")):
 # </percy>
 ```
 
-If you want to make use of Percy's build/test tasks you can **alternatively** run the following:
+> **NOTE:** the build and test tasks are more opinionated, and how they work might change over time.  As of this writing, the build task is pretty solid, but the test task is using `testament` and making some assumptions.
+>
+> - `nim build`
+> - `nim test`
+>
+> When newer versions of `percy` are released, you can simply re-run `percy init` to get the latest tasks.
+
+
+If you want to explicitly exclude the addition of the tasks you can **alternatively** run the following:
 
 ```
 percy init -w
 ```
 
-> **WARNING:** this will add an more extensive and opinionated code to your `config.nims` to enable the use of the following commands:
->
-> - `nim build`
-> - `nim test`
->
-> It will also **delete all existing tasks**
-
-If you want to know what gets added take a look [here](https://github.com/mattsah/percy/blob/master/local/commands/init.nim) at the `gettasks()` method.  It may not work for your build requirements, so you should **check first** to make sure.
+If you want to know the gritty details of what gets added take a look [here](https://github.com/mattsah/percy/blob/master/local/commands/init.nim) at the `*Task()` method(s).
 
 ##### The `percy.json` file
 
-Once your project is initialized, you should have a `percy.json` file in the root of the project.  This file tracks package sources and provides a placeholder for some meta information.  To add more packages, see the section below on [adding packages](#adding-packages).
+Once your project is initialized, you should have a `percy.json` file in the root of the project.  This file tracks package sources and packages and provides a placeholder for some meta information.  To add more packages, see the section below on [adding packages](#adding-packages).
 
 ##### The `vendor` directory
 
 In addition to the `percy.json` file, initialization should have created a `vendor` directory along with a file called `index.percy.json`.  This file contains a list of the resolved URLs for all packages available with your current configuration.
 
-#### Installation
+#### Installing Dependencies (from a lock file)
 
 To install your dependencies you run:
 
@@ -139,14 +263,39 @@ Graph: Graph Completed With Usable Versions
 
 This report shows usable versions which have not been excluded by top-level project requirements and is prior to solving (which again doesn't actually really solve anything right now).
 
+> **NOTE:** Installation will always install from a `percy.lock` file if one exists.  If not it is effectively equivalent to a `percy update -n` which will pull the newest versions matching your `.nimble` requirements and write the lock file.
+
+#### Updating Dependencies
+
+To update your dependencies you can run:
+
+```bash
+percy update
+```
+
+This command will ignore the `percy.lock` file and pull the latest compatible versions of your dependencies based on your requirement.  It will additionally install any newly required or delete any removed dependencies.
+
+It's **important** to note, however, this will only fetch newer versions or more recent heads from remote repositories if your local cache has gone stale (after an hour or so).  If you're trying to update to versions which are newer in the remote repository, add the `-n` flag:
+
+```bash
+percy update -n
+```
+
+> **NOTE**: Percy is designed to provide more seamless development _within_ your `vendor` directory.  Accordingly, it takes great care not to destroy things there.  You may see `Skip` warnings during the installation or update process.  This generally indicates that your `vendor` directory is in an unclean state.  You should check the indicated directories based on the error and clean them up manually or, if you know there's nothing important:
+>
+> `percy update -nf`
+>
+> The addition of the `-f` flag will force resolution of paths.
+
+##### Locking
+
+The `percy.lock` file is automatically written after a successful update.  If for whatever reason your build is not functional you should simply discard its changes via your VCS.  There is no explicit `lock` command.
+
 #### Adding Packages
 
-You can add packages in two distinct ways.
+Percy resolves all known dependency/requirement names to their URL.  In order to lookup a package's URL by its name, it needs to be in either a configured package repository (what we call a **_source_**) or as an individual **_package_**.  URL based dependencies/requirements should just work.
 
-- **Sources** are entire package repositories, such as the official nim packages repository.
-- **Packages** are one off packages which can point to an arbitrary git URL.
-
-Upon initialization, your `percy.json` file will only contain the official Nim packages repository:
+A default initialization will always include the official Nim language package repository at (https://github.com/nim-lang/packages) in your `percy.json`.  This should allow most well-known packages to resolve by name out of the box:
 
 ```json
 {
@@ -157,6 +306,16 @@ Upon initialization, your `percy.json` file will only contain the official Nim p
   "packages": {}
 }
 ```
+
+If you want to be more explicit, you can reset your configuration to empty via:
+
+```bash
+percy init -r
+```
+
+> **NOTE**: This will reset the entire configuration and remove any other additions you have made.
+
+To add more packages by name, you'll need to add either a _source_ or a _package_.  You can also create your own sources quite easily, share them publicly as curated lists or keep them in a private git repository for internal of private packages.
 
 ##### Sources
 
@@ -178,7 +337,7 @@ The `<url>` must point to a git repository containing a `packages.json` file in 
 ]
 ```
 
-To add this repository to your own Percy configuration, you would execute:
+To add the official mininim repository to your own Percy configuration, you would execute:
 
 ```bash
 percy set source mininim cb://mininim/packages
@@ -190,17 +349,23 @@ If you wanted to remove it:
 percy unset source mininim
 ```
 
-> Note:  The example above to add the mininim repository uses `gh://` forge-style URLs.  You are **not** required to use this style of URL, and standard `https://` or even `git@` URLs should be viable, although in our experience `https://` is significantly faster than git over SSH.
+> Note:  The example above to add the mininim repository uses `gh://` forge-style URLs.  You are **not** required to use this style of URL, and standard `https://` or even `git@`-style addresses should be viable, although in our experience `https://` is significantly faster than git over SSH.  Forge style URLs and even `git@`-style URLs are always resolved to their _actual_ URL internally, e.g. `https://github.com/...` and `git+ssh://...` styles.
+>
+> Forge style currently supports:
+>
+> - `gh://` or `github://` for GitHub 
+> - `gl://` or `gitlab://` for GitLab
+> - `cb://` or `codeberg://` for Codeberg 
 
 ##### Packages
 
-Adding individual packages is also possible via the `set` command.  The only distinction here is that instead of pointing at a repository that contains a `packages.json` file, you're pointing at the repository for the package itself.
+Adding individual packages is also possible via the `set` command.  The only distinction here is that instead of pointing at a repository that contains a `packages.json` file, you're pointing the package name directly at the git repository.
 
 ```bash
 percy set package neo https://github.com/xTrayambak/neo.git
 ```
 
-> **NOTE:**  When packages added via the `set package` command or as part of a source repository added with `set source` have a conflicting name, the latter defined URL is _always used_ and with package URLs overwriting URLs provided by source repositories.
+> **NOTE:**  When packages added via the `set package` command or as part of a source repository added with `set source` have a conflicting name, the latter defined URL is _always used_ and with package URLs overwriting URLs provided by sources.
 
 In the example above, `neo` would now refer to to the URL provided in the example, instead of the one defined in the nim official repository.  The recommended approach is to retain the nim official repository as your first source, add sources after which constitute private repositories and/or overloads to the official, while using package entries to resolve any conflicts.  Also **stop** using short package names.
 
@@ -365,13 +530,10 @@ for repository, commits in this.tracking:
 
 This basically means that repositories are first sorted by the total number of "usable" versions, and then their "usable" versions are sorted as:
 
-1. HEAD
+1. HEAD 
 2. Branches and other non-semver styled tags (Alphabetically)
 3. Version numbers and corresponding build/meta info (Per the `semver` package) for all semver styled tags.
 
 ## More to Come
 
-- Require
-- Remove
-- Update
 - Hooks
