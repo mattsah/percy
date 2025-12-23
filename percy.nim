@@ -1,8 +1,7 @@
 import
     mininim/loader,
     mininim/dic,
-    mininim/cli,
-    std/os
+    mininim/cli
 
 loader.scan(currentSourcePath().parentDir / "local")
 
