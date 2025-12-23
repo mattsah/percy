@@ -34,8 +34,8 @@ begin Settings:
                 result = true
                 break
 
-    method getName*(url: string): string {. base .} =
-        result = parseUri(url).path.strip("/")
+    method getWorkDir*(url: string): string {. base .} =
+        result = parseUri(url).path.strip("/").toLower() # default to lowercased path
         for name, value in this.index:
             if url == value:
                 if name.contains('/'):

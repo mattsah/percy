@@ -95,12 +95,19 @@ begin DepGraph:
         this.quiet    = quiet
         this.settings = settings
 
+    method checkConstraint*(requirement: Requirement, commit: Commit): bool {. base .} =
+        if requirement.constraint.check(commit.version):
+            result = true
+        elif requirement.constraint.check(v("0.0.0-commit." & commit.id)):
+            result = true
+        else:
+            result = false
+
     #[
     ##
     ]#
     method parseConstraint*(constraint: string, repository: Repository): Constraint {. base .} =
         let
-            cleaned = constraint.replace(" ", "")
             fix = proc(numericV: string): string =
                 result = numericV
                 for i in numericV.split('.').len..2:
@@ -110,27 +117,32 @@ begin DepGraph:
             check: ConstraintHook as (
                 block:
                     try:
-                        if cleaned == "any":
+                        if constraint == "any":
                             return true
-                        elif cleaned.startsWith("=="):
-                            return v == v(fix(cleaned[2..^1]))
-                        elif cleaned.startsWith(">="):
-                            return v >= v(fix(cleaned[2..^1]))
-                        elif cleaned.startsWith("<="):
-                            return v <= v(fix(cleaned[2..^1]))
-                        elif cleaned.startsWith("<"):
-                            return v < v(fix(cleaned[1..^1]))
-                        elif cleaned.startsWith(">"):
-                            return v > v(fix(cleaned[1..^1]))
+                        elif constraint.startsWith("=="):
+                            return v == v(fix(constraint[2..^1]))
+                        elif constraint.startsWith(">="):
+                            return v >= v(fix(constraint[2..^1]))
+                        elif constraint.startsWith("<="):
+                            return v <= v(fix(constraint[2..^1]))
+                        elif constraint.startsWith("<"):
+                            return v < v(fix(constraint[1..^1]))
+                        elif constraint.startsWith(">"):
+                            return v > v(fix(constraint[1..^1]))
                         else:
-                            if cleaned.startsWith("#"):
+                            if constraint.startsWith("@"):
+                                return v == v("0.0.0-commit." & constraint[1..^1])
+                            elif constraint.startsWith("#"):
                                 let
-                                    head = cleaned[1..^1].replace(re"[!@#$%^&*+_.,]", "-")
-                                return v == v("0.0.0-branch." & head)
+                                    head = constraint[1..^1].replace(re"[!@#$%^&*+_.,]", "-").toLower()
+                                if head == "head":
+                                    return v == v("0.0.0-HEAD")
+                                else:
+                                    return v == v("0.0.0-branch." & head)
                             else:
                                 let
-                                    now = v(fix(cleaned[1..^1]))
-                                if cleaned.startsWith("~"):
+                                    now = v(fix(constraint[1..^1]))
+                                if constraint.startsWith("~"):
                                     let
                                         next = Version(
                                             major: now.major,
@@ -138,7 +150,7 @@ begin DepGraph:
                                             patch: 0
                                         )
                                     return v >= now and v < next
-                                elif cleaned.startsWith("^"):
+                                elif constraint.startsWith("^"):
                                     let
                                         next = Version(
                                             major: now.major + 1,
@@ -165,38 +177,44 @@ begin DepGraph:
     method parseRequirement*(requirement: string): Requirement {. base .} =
         # Something like:
         #   semver >=1.2.3|#head
-        #   mininim-core >=2.1,<=2.5|>=2.8
+        #   mininim-core >=2.1&<=2.5|>=2.8
         #   /path/to/file ^1.5
         #   gh://mattsah/percy ~=1.5
         #
-        # The rules around splitting cleaneds are probably OK, but longer
-        # term we might need to parse out the package differently if spaces
-        # are not common dividing repository + cleaneds.  Problem is a
-        # URL can contain a ~ and so can a cleaned.
-        let
-            parts = requirement.strip().split(' ', 1)
-            package = parts[0]
+        # The rules around splitting package and versions are probably OK, but longer. Only glaring
+        # issue is that a URL can contain an `~`.
+        #
         var
+            parts: seq[string]
+            package: string
             versions: string
-            repository = this.settings.getRepository(package)
+            repository: Repository
             constraint = Constraint(check: ConstraintHook as (
                 block:
                     result = true
             ))
 
-        if parts.len > 1:
-            versions = parts[1]
-        else:
-            versions = "any"
+        package = requirement.strip()
+        versions = "any"
 
-        if parts.len > 1:
+        for i, sym in package:
+            if sym in {'=', '>', '<', '~', '^', '#', '@', ' '}:
+                parts = package.split(sym, 1)
+                package = parts[0].strip()
+                if parts.len > 1:
+                    versions = replace(sym & parts[1].toLower(), " ", "")
+                break
+
+        repository = this.settings.getRepository(package)
+
+        if versions != "any":
             var
                 anyParts = versions.split('|')
                 anyItems = newSeq[Constraint](anyParts.len)
 
             for i, anyConstraint in anyParts:
                 var
-                    allParts = anyConstraint.split(',')
+                    allParts = anyConstraint.split('&')
                     allItems = newSeq[Constraint](allParts.len)
                 for j, allConstraint in allParts:
                     allItems[j] = this.parseConstraint(allConstraint, repository)
@@ -306,7 +324,7 @@ begin DepGraph:
         if not this.quiet:
             print fmt "Graph: Adding Requirement"
             print fmt "> Dependent: {commit.repository.url} @ {commit.version}"
-            print fmt "> Dependends On: {requirement.repository.url} @ {requirement.versions}"
+            print fmt "> Depends On: {requirement.repository.url} @ {requirement.versions}"
 
         this.addRepository(requirement.repository)
 
@@ -318,7 +336,7 @@ begin DepGraph:
                 toRemove = HashSet[Commit]()
 
             for commit in this.commits[requirement.repository]:
-                if not requirement.constraint.check(commit.version):
+                if not this.checkConstraint(requirement, commit):
                     toRemove.incl(commit)
                 else:
                     toResolve.incl(commit)
@@ -331,7 +349,7 @@ begin DepGraph:
                 this.commits[commit.repository].excl(commit)
         else:
             for commit in this.commits[requirement.repository]:
-                if requirement.constraint.check(commit.version):
+                if this.checkConstraint(requirement, commit):
                     toResolve.incl(commit)
 
         this.requirements[key].add(requirement)
@@ -463,7 +481,7 @@ begin Solver:
                                 let
                                     assignment = assignments[requirement.repository]
 
-                                if not requirement.constraint.check(assignment.commit.version):
+                                if not graph.checkConstraint(requirement, assignment.commit):
                                     knownConflicts.incl((assignment.commit, commit))
                                     knownConflicts.incl((commit, assignment.commit))
                                     consistentWithOtherAssignments = false

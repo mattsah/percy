@@ -17,13 +17,17 @@ begin RequireCommand:
             package = console.getArg("package")
             versions = console.getArg("versions")
             requireCount = this.nimbleInfo.requires.len
-            requireLine = strip(fmt "{package} {versions}")
-
         var
-            hasAddition = false
+            hasAddition = true
             newContent: string
+            requireLine: string
             requirement: Requirement
             results: SolverResult
+
+        if versions.toLower() == "any":
+            requireLine = strip(fmt "{package}")
+        else:
+            requireLine = strip(fmt "{package} {versions}")
 
         try:
             requirement = graph.parseRequirement(requireLine)
@@ -48,8 +52,7 @@ begin RequireCommand:
                     existingRequirement = graph.parseRequirement(existingLine)
                 if requirement.repository.url == existingRequirement.repository.url:
                     this.nimbleInfo.requires[i][j] = requireLine
-                else:
-                    hasAddition = true
+                    hasAddition = false
 
         if hasAddition:
             this.nimbleMap = this.nimbleMap & "\n" & "{%requires-" & $requireCount & "%}"
@@ -65,8 +68,13 @@ begin RequireCommand:
             if isSome(results.solution):
                 discard this.loadSolution(results.solution.get())
                 writeFile(this.nimbleFile, newContent)
+                result = 0
             else:
-                discard
+                fail fmt "Could not find solution"
+                if this.verbosity > 0:
+                    graph.report()
+                result = 4
+
         except Exception as e:
             graph.reportStack()
             fail fmt "Failed updating with new requirement"

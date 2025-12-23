@@ -92,29 +92,29 @@ begin BaseGraphCommand:
         #
         for commit in solution:
             let
-                currentUrl = commit.repository.url
+                targetDir = vendorDir / this.settings.getWorkDir(commit.repository.url)
                 workTrees = commit.repository.workTrees
-                workDir = vendorDir / this.settings.getName(commit.repository.url)
+                currentUrl = commit.repository.url
 
-            if not workTrees.hasKey(workDir):
-                if dirExists(workDir) and not force:
-                    info fmt "> Skip: '{workDir}': non-worktree of {currentUrl} (force with -f)"
-                    retainDirs.incl(workDir)
+            if not workTrees.hasKey(targetDir):
+                if dirExists(targetDir) and not force:
+                    info fmt "> Skip: '{targetDir}': non-worktree of {currentUrl} (force with -f)"
+                    retainDirs.incl(targetDir)
                 else:
-                    createDirs.incl(workDir)
+                    createDirs.incl(targetDir)
             else:
                 let
-                    branch = workTrees[workDir].branch
-                    head = workTrees[workDir].head
+                    branch = workTrees[targetDir].branch
+                    head = workTrees[targetDir].head
 
                 if head == commit.id: # We can just retain the current state if it matches
-                    retainDirs.incl(workDir)
+                    retainDirs.incl(targetDir)
                 else: # If it doesn't match we want to check if there's a branch checked out
                     if branch.len != 0 and not force: # Someone may be working on something
-                        info fmt "> Skip: '{workDir}': using branch `{branch}` (force with -f)"
-                        retainDirs.incl(workDir)
+                        info fmt "> Skip: '{targetDir}': using branch `{branch}` (force with -f)"
+                        retainDirs.incl(targetDir)
                     else:
-                        updateDirs.incl(workDir)
+                        updateDirs.incl(targetDir)
 
         proc scanDeletes(dir: string): void =
             var
@@ -197,11 +197,11 @@ begin BaseGraphCommand:
 
         for commit in solution:
             let
-                relDir = this.settings.getName(commit.repository.url)
-                workDir = vendorDir / relDir
+                workDir = this.settings.getWorkDir(commit.repository.url)
+                targetDir = vendorDir / workDir
                 commitHash = commit.id
 
-            if updateDirs.contains(workDir):
+            if updateDirs.contains(targetDir):
                 percy.execIn(
                     ExecHook as (
                         block:
@@ -211,15 +211,15 @@ begin BaseGraphCommand:
                     ),
                     workDir
                 )
-            elif createDirs.contains(workDir):
+            elif createDirs.contains(targetDir):
                 error = commit.repository.exec(@[
-                    fmt "git worktree add -d {workDir} {commitHash}"
+                    fmt "git worktree add -d {targetDir} {commitHash}"
                 ], output)
 
             if commit.info.srcDir.len > 0: # optimized
-                pathList.add(fmt """--path:"{percy.target / relDir / commit.info.srcDir}"""")
+                pathList.add(fmt """--path:"{percy.target / workDir / commit.info.srcDir}"""")
             else:
-                pathList.add(fmt """--path:"{percy.target / relDir}"""")
+                pathList.add(fmt """--path:"{percy.target / workDir}"""")
 
         writeFile(fmt "vendor/{percy.name}.paths", pathList.join("\n"))
 

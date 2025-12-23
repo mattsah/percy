@@ -395,13 +395,13 @@ In the event you **use a slash**, you will additionally notice that your package
 
 All non-namespaced packages (official packages and non-slash named packages) will be installed into `vendor/+global`.
 
-Using our previous example of `neo`, were we to require the URL directly in our `.nimble` file, then instead of being instead of overloading the name, it would be located in `vendor/xTrayambak/neo`.  Allowing for both the official `neo` package and that one to be installed:
+Using our previous example of `neo`, were we to require the URL directly in our `.nimble` file, then instead of being instead of overloading the name, it would be located in `vendor/xtrayambak/neo`.  Allowing for both the official `neo` package and that one to be installed:
 
 ```
 vendor
 ├── +global
 │  └── neo
-├── xTrayambak
+├── xtrayambak
 │  └── neo
 └── index.percy.json
 ```
@@ -430,15 +430,15 @@ There is still a question of how `percy remove` will be handled, but we will lik
 
 ### Version Constraints
 
-Version constraints should be well supported along with the ability to add `|` to provide "or" operations, and `,` to provide "and" operations, for example:
+Version constraints should be well supported along with the ability to add `|` to provide "or" operations, and `&` to provide "and" operations, for example:
 
 ```nim
-requires "nim >=2.2.6 | >=2.2.0, <=2.2.4"
+requires "nim >=2.2.6 | >=2.2.0 & <=2.2.4"
 ```
 
 This is equivalent to:
 
-Nim version greater than or equal *[gte]* to 2.2.6 ** or ** **(** *[gte]* 2.2.0 **and** _*[lte]* 2.2.4 **)**, effectively skipping 2.2.5.  In short, constraints are first split by `|` creating a sequence of "or" constraints, then each constraint therein is split by `,` creating a sequence of "and" constraints.  Internally these are called "Any" and "All".  Although not actually the code, you can roughly imagine something like the following pseudo-Nim (hah, punny) code:
+Nim version greater than or equal *[gte]* to 2.2.6 ** or ** **(** *[gte]* 2.2.0 **and** _*[lte]* 2.2.4 **)**, effectively skipping 2.2.5.  In short, constraints are first split by `|` creating a sequence of "or" constraints, then each constraint therein is split by `&` creating a sequence of "and" constraints.  Internally these are called "Any" and "All".  Although not actually the code, you can roughly imagine something like the following pseudo-Nim (hah, punny) code:
 
 ```nim
 type

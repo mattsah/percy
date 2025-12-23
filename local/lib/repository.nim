@@ -45,7 +45,7 @@ type
 
 begin Commit:
     proc `$`*(): string =
-        result = fmt "{this.id} ($this.version)"
+        result = fmt "{this.id} {$this.version}"
 
     proc hash*(): Hash =
         result = hash(this.id)
@@ -98,6 +98,9 @@ begin Repository:
                 uri.path = uri.path[0..^5]
         else:
             uri.path = absolutePath($uri)
+
+        if uri.anchor.len > 0:
+            uri.anchor = ""
 
         result = strip($uri, leading = false, chars = {'/'})
 
