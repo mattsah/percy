@@ -13,12 +13,12 @@
     },
     "mininim_core": {
       "version": "0.0.0",
-      "vcsRevision": "25210b41c130e69d0c22e169dd4487843bc42e59",
+      "vcsRevision": "3938d6961e0d07271c7d01627dbd624a2bfedc27",
       "url": "https://codeberg.org/mininim/core",
       "downloadMethod": "git",
       "dependencies": [],
       "checksums": {
-        "sha1": "16ad0f74c6547b47d49cf24f4f5a3c0fe8fddf53"
+        "sha1": "4f9628d4c6a2ba8d338c6c3ac49ad87e24b717a3"
       }
     },
     "mininim_cli": {

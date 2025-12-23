@@ -1,9 +1,10 @@
 import
     mininim/loader,
     mininim/dic,
-    mininim/cli
+    mininim/cli,
+    std/os
 
-loader.scan("./local")
+loader.scan(currentSourcePath().parentDir / "local")
 
 var
     app = App.init()
