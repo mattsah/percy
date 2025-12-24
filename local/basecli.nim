@@ -217,9 +217,9 @@ begin BaseGraphCommand:
                 ], output)
 
             if commit.info.srcDir.len > 0: # optimized
-                pathList.add(fmt """--path:"{percy.target / workDir / commit.info.srcDir}"""")
+                pathList.add(fmt "{percy.target / workDir / commit.info.srcDir}")
             else:
-                pathList.add(fmt """--path:"{percy.target / workDir}"""")
+                pathList.add(fmt "{percy.target / workDir}")
 
         writeFile(fmt "vendor/{percy.name}.paths", pathList.join("\n"))
 

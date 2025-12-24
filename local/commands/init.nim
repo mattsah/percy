@@ -10,8 +10,12 @@ begin InitCommand:
         result = dedent(
             fmt """
             # <{percy.name}>
-            when withDir(thisDir(), system.fileExists("vendor/{percy.name}.paths")):
-                include "vendor/{percy.name}.paths"
+            --noNimblePath
+            import
+                std/strutils
+            when withDir(thisDir(), system.fileExists("vendor/percy.paths")):
+                for path in readFile("vendor/percy.paths").split("\n"):
+                    switch("path", path)
             # </{percy.name}>
             """
         )
