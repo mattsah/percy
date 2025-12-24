@@ -189,9 +189,6 @@ begin BaseGraphCommand:
         #
         # Perform loading
         #
-
-        pathList.add("--noNimblePath")
-
         for dir in deleteDirs:
             removeDir(dir)
 
