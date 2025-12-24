@@ -1,6 +1,7 @@
 import
     percy,
-    basecli
+    basecli,
+    lib/lockfile
 
 type
     InstallCommand = ref object of BaseGraphCommand
@@ -17,22 +18,12 @@ begin InstallCommand:
                 solution: Solution
                 checkouts: seq[Checkout]
 
-            for commit in parseJson(readFile("percy.lock")):
+            for node in parseJson(readFile("percy.lock")):
                 let
-                    id = commit["id"].getStr()
-                    version = commit["version"].to(Version)
-                    repository = Repository.init(commit["repository"].getStr())
-                    info = commit["info"].to(NimbleFileInfo)
-
-                if not repository.cacheExists:
-                    discard repository.clone()
-
-                solution.add(Commit(
-                    id: id,
-                    version: version,
-                    repository: repository,
-                    info: info
-                ))
+                    commit = Commit.fromLockFile(node)
+                if not commit.repository.cacheExists:
+                    discard commit.repository.clone()
+                solution.add(commit)
 
             checkouts = this.loadSolution(solution, force)
 

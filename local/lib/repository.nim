@@ -405,6 +405,3 @@ begin Repository:
             )
 
         result = output
-
-
-

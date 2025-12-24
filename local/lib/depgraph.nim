@@ -260,9 +260,6 @@ begin DepGraph:
         let
             key = (commit.repository, commit.version)
 
-        if not this.tracking.hasKey(commit.repository):
-            this.tracking[commit.repository] = initOrderedSet[Commit]()
-
         if not this.requirements.hasKey(key):
             if not this.quiet:
                 print fmt "Graph: Resolving Nimble File"
@@ -355,11 +352,14 @@ begin DepGraph:
         this.requirements[key].add(requirement)
 
         for commit in toResolve:
-            if this.commits[commit.repository].contains(commit):
+            if not this.tracking.hasKey(commit.repository):
+                this.tracking[commit.repository] = initOrderedSet[Commit]()
+
+            if not this.tracking[commit.repository].contains(commit):
                 this.resolve(commit, depth)
             else:
                 if not this.quiet:
-                    print fmt "Graph: Skipping Resolution (Already Removed)"
+                    print fmt "Graph: Skipping Resolution (Already Resolved)"
                     print fmt "> Repository: {commit.repository.url}"
                     print fmt "> Version: {commit.version}"
 

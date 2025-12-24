@@ -35,7 +35,7 @@ begin Settings:
                 break
 
     method getWorkDir*(url: string): string {. base .} =
-        result = parseUri(url).path.strip("/").toLower() # default to lowercased path
+        result = parseUri(url).path.strip(chars = {'/'}).toLower() # default to lowercased path
         for name, value in this.index:
             if url == value:
                 if name.contains('/'):
