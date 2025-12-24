@@ -3,7 +3,6 @@ import
     semver,
     std/re,
     std/uri,
-    std/paths,
     std/hashes,
     checksums/sha1
 
@@ -55,7 +54,7 @@ begin Repository:
         result = this.hash
 
     proc validateUrl*(url: string): void {. static .} =
-        if url.startsWith($paths.getCurrentDir()):
+        if url.startsWith(getCurrentDir() & "/"):
             raise newException(
                 ValueError,
                 fmt "repository at '{url}' should not be in your working directory"
@@ -67,7 +66,7 @@ begin Repository:
 
         if uri.scheme.len == 0: # optimized
             if dirExists(uri.path / ".git"):
-                uri.path = $absolutePath(Path uri.path)
+                uri.path = absolutePath(uri.path)
             elif uri.path.match(re"^.+\@.+\:.+$"):
                 var
                     parts = uri.path.split(':')
@@ -233,7 +232,9 @@ begin Repository:
 
     method head*(): string {. base .} =
         for line in readFile(this.cacheDir / "FETCH_HEAD").split("\n"):
-            if line.toLower().split("\t\t")[1].startsWith(this.url.strip(chars = {'/'}).toLower()):
+            let
+                matchUrl = this.url.strip(leading = false, chars = {'/'}).toLower()
+            if line.toLower().split("\t\t")[1].startsWith(matchUrl):
                 result = line[0..39]
                 break
         if not result:
