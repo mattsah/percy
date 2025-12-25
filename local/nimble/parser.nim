@@ -176,12 +176,30 @@ proc parseFile*(source: string, map: var string): NimbleFileInfo =
     map = mapLines.join("\n").strip()
 
     for linereqs in requires:
+        var
+            cleaned = linereqs
         try:
-            info["requires"].add(parseJson("[" & linereqs & "]"))
+            var
+                inString = false
+            #
+            # Fix comments and other abnormalities
+            #
+            for pos, i in linereqs:
+                if i == '"':
+                    if inString:
+                        inString = false
+                    else:
+                        inString = true
+                elif i == '#':
+                    if not inString:
+                        cleaned = linereqs[0..pos - 1]
+                        break
+
+            info["requires"].add(parseJson("[" & cleaned & "]"))
         except:
             raise newException(
                 ValueError,
-                "Failed parsing requirements: " & linereqs
+                "Failed parsing requirements: " & cleaned
             )
 
     result = info.to(NimbleFileInfo)

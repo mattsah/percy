@@ -206,8 +206,6 @@ begin InitCommand:
 
             result = subConsole.run(command)
 
-        return 0
-
 shape InitCommand: @[
     Command(
         name: "init",

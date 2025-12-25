@@ -19,9 +19,9 @@ begin InfoCommand:
             of "nimble":
                 if useJson:
                     print pretty(%this.nimbleInfo)
-                    return 0
                 else:
                     print "Not Implemented Yet"
+
             of "lock", "graph":
                 let
                     locks = parseJson(readFile("percy.lock"))
@@ -111,6 +111,7 @@ begin InfoCommand:
 
             else:
                 fail fmt "Invalid type specified"
+                return 1
 
 shape InfoCommand: @[
     Command(

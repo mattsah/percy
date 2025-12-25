@@ -433,7 +433,6 @@ begin Solver:
         var
             level = 0
             assignments = initTable[Repository, Assignment]()
-            knownConflicts = initHashSet[(Commit, Commit)]()
             backtrackCount = 0
 
         while true:
@@ -461,7 +460,7 @@ begin Solver:
                     #
                     # We've already assigned this repository, just continue.  The assigmnet may
                     # be removed later if not version of the next level down is found to be
-                    # consistent iwth it.
+                    # consistent with it.
                     #
                     continue
 
@@ -474,7 +473,7 @@ begin Solver:
                     if graph.requirements.hasKey(key):
                         #
                         # We loop through all of the requirements for this commit and check to see
-                        # if any of our existing assignments violat them.
+                        # if any of our existing assignments violate them.
                         #
                         for requirement in graph.requirements[key]:
                             if assignments.hasKey(requirement.repository):
@@ -482,8 +481,9 @@ begin Solver:
                                     assignment = assignments[requirement.repository]
 
                                 if not graph.checkConstraint(requirement, assignment.commit):
-                                    knownConflicts.incl((assignment.commit, commit))
-                                    knownConflicts.incl((commit, assignment.commit))
+                                    # TODO, Save some info about the current state and/or add
+                                    # specific conflict info that other solutions can check first
+                                    # to avoid.
                                     consistentWithOtherAssignments = false
                                     break
 
@@ -492,6 +492,7 @@ begin Solver:
                         # We were found to be consistent with all other assignments, so let's add
                         # ourself to the assignment.
                         #
+                        inc level
                         assignments[repository] = Assignment(
                             level: level,
                             commit: commit
@@ -519,6 +520,7 @@ begin Solver:
                         toRemove = initHashSet[Repository]()
                     for repository, assignment in assignments:
                         if assignment.level >= level:
+                            graph.tracking[repository].excl(assignment.commit)
                             toRemove.incl(repository)
 
                     for repository in toRemove:
@@ -526,8 +528,9 @@ begin Solver:
 
                     dec level
 
+
                 #
                 # If we got here, we've either:
-                # 1. Assigned a commit for the given repository or...
-                # 2.
+                # 1. Assigned a commit for the given repository
+                # 2. Backtracked one level up and removed the current assignment from candidates.
                 break

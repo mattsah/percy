@@ -1,6 +1,7 @@
 import
     percy,
-    basecli
+    basecli,
+    lib/lockfile
 
 type
     UpdateCommand = ref object of BaseGraphCommand
@@ -25,21 +26,18 @@ begin UpdateCommand:
 
         results = solver.solve(graph)
 
-        if isSome(results.solution):
+        if isNone(results.solution):
+            fail fmt "There Is No Available Solution"
+            return 1
+        else:
             checkouts = this.loadSolution(results.solution.get(), force)
 
             var
                 lock = newJArray()
                 commit: JsonNode
 
-            for item in %(results.solution.get()):
-                commit = newJObject()
-                commit["id"] = item["id"]
-                commit["info"] = item["info"]
-                commit["version"] = item["version"]
-                commit["repository"] = item["repository"]["url"]
-
-                lock.add(commit)
+            for commit in results.solution.get():
+                lock.add(commit.toLockFile())
 
             writeFile("percy.lock", pretty(lock))
 

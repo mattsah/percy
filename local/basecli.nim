@@ -184,7 +184,7 @@ begin BaseGraphCommand:
                     for dir in createDirs:
                         print fmt ">    {dir}"
             else:
-                print fmt "> Solution: There No Applicable Changes"
+                print fmt "> Solution: There Are No Applicable Changes"
 
         #
         # Perform loading
@@ -219,4 +219,3 @@ begin BaseGraphCommand:
                 pathList.add(fmt "{percy.target / workDir}")
 
         writeFile(fmt "vendor/{percy.name}.paths", pathList.join("\n"))
-

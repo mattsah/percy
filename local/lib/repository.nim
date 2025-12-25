@@ -276,14 +276,18 @@ begin Repository:
                 try:
                     if parts[0] == "HEAD":
                         version = v("0.0.0-HEAD")
-                    elif parts[0].match(re".*[0-9]+\.[0-9]+.*"):
-                        version = v(parts[0].replace(re"^[^0-9]*", ""))
                     else:
-                        version = v(
-                                "0.0.0-branch." & (
-                                    parts[0][prefix.len..^1].replace(re"[!@#$%^&*+_.,/]", "-")
+                        let
+                            qualified = parts[0][prefix.len..^1]
+                        if qualified.match(re"(v?)[0-9]+\.[0-9]+\.[0-9]+.*"):
+                            # TODO: Perhaps we should be handling non-3 digits in repo?
+                            version = v(qualified.replace(re"^[^0-9.]*", ""))
+                        else:
+                            version = v(
+                                    "0.0.0-branch." & (
+                                        qualified.replace(re"[!@#$%^&*+_.,/]", "-")
+                                    )
                                 )
-                            )
 
                     result.incl(Commit(
                         id: parts[1],
