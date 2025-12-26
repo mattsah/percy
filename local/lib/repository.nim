@@ -134,7 +134,7 @@ begin Repository:
 
     method exists*(): bool {. base .} =
         var
-            status: int
+            error: int
             output: string
 
         result = false
@@ -144,11 +144,11 @@ begin Repository:
         else:
             try:
                 if this.stale:
-                    status = percy.execCmdCapture(output, @[
+                    error = percy.execCmdCapture(output, @[
                         fmt "git ls-remote '{this.url}' 'null'"
                     ])
 
-                    if status == 0:
+                    if error == 0:
                         result = true
             except:
                 discard
@@ -174,9 +174,9 @@ begin Repository:
 
     method fetch*(): bool {. base .} =
         var
-            status: int
+            error: int
             output: string
-        status = this.exec(
+        error = this.exec(
             @[
                 fmt "git fetch origin -f --prune",
                 fmt "'+refs/tags/*:refs/{percy.name}/*'",
@@ -186,7 +186,7 @@ begin Repository:
             output
         )
 
-        if status != 0 or not fileExists(this.cacheDir / "FETCH_HEAD"): # optimized
+        if error != 0 or not fileExists(this.cacheDir / "FETCH_HEAD"): # optimized
             raise newException(ValueError, fmt "failed fetching from {this.url}: {output}")
 
         result = output.len > 0
@@ -240,88 +240,27 @@ begin Repository:
         if not result:
             raise newException(ValueError, fmt "could not determine head on {this.url}")
 
-    method commits*(newest: bool = false): OrderedSet[Commit] {. base .} =
-        const
-            tag  = "%(refname:short)"
-            hash = "%(if:equals=tag)%(objecttype)%(then)%(*objectname)%(else)%(objectname)%(end)"
-        let
-            prefix = fmt "{percy.name}/"
-        var
-            status: int
-            output: string
-            head: string
-
-        discard this.update(newest)
-
-        status = this.exec(
-            @[
-                fmt "git for-each-ref --omit-empty --format='{tag} {hash}'",
-                fmt "'refs/{percy.name}/?*[0-9]*.*'",
-                fmt "'refs/{percy.name}/*'"
-            ],
-            output
-        )
-
-        if status != 0:
-            raise newException(ValueError, fmt "failed aggregating commits on {this.url}")
-
-        output = fmt "HEAD {this.head}\n{output}"
-
-        for reference in output.split('\n'):
-            let
-                parts = reference.split(' ', 1)
-            var
-                version: Version
-            if parts.len == 2:
-                try:
-                    if parts[0] == "HEAD":
-                        version = v("0.0.0-HEAD")
-                    else:
-                        let
-                            qualified = parts[0][prefix.len..^1]
-                        if qualified.match(re"(v?)[0-9]+\.[0-9]+\.[0-9]+.*"):
-                            # TODO: Perhaps we should be handling non-3 digits in repo?
-                            version = v(qualified.replace(re"^[^0-9.]*", ""))
-                        else:
-                            version = v(
-                                    "0.0.0-branch." & (
-                                        qualified.replace(re"[!@#$%^&*+_.,/]", "-")
-                                    )
-                                )
-
-                    result.incl(Commit(
-                        id: parts[1],
-                        repository: this,
-                        version: version
-                    ))
-
-                except:
-                    raise newException(
-                        ValueError,
-                        fmt "Failed loading reference '{reference}': {getCurrentExceptionMsg()}"
-                    )
-
     method worktrees*(): Table[string, WorkTree] {. base .} =
         var
-            status: int
+            error: int
             worktrees: string
 
-        status = this.exec(
+        error = this.exec(
             @[
                 fmt "git worktree prune"
             ],
             worktrees
         )
-        if status != 0: # optimized
+        if error != 0: # optimized
             raise newException(ValueError, "Could not prune worktree list")
 
-        status = this.exec(
+        error = this.exec(
             @[
                 fmt "git worktree list --porcelain"
             ],
             worktrees
         )
-        if status != 0: # optimized
+        if error != 0: # optimized
             raise newException(ValueError, "Could not get worktree list")
 
         for worktree in worktrees.strip().split("\n\n"):
@@ -352,6 +291,76 @@ begin Repository:
                     head: head,
                     path: path
                 )
+
+    method getCommit*(id: string): Option[Commit] {. base .} =
+        var
+            error: int
+            output: string
+
+        error = this.exec(
+            @[
+                fmt "git show {id}"
+            ],
+            output
+        )
+
+        if error != 0:
+            result = some(Commit(
+                id: id,
+                version: ver(id),
+                repository: this
+            ))
+
+    method getCommits*(newest: bool = false): OrderedSet[Commit] {. base .} =
+        const
+            tag  = "%(refname:short)"
+            hash = "%(if:equals=tag)%(objecttype)%(then)%(*objectname)%(else)%(objectname)%(end)"
+        let
+            prefix = fmt "{percy.name}/"
+        var
+            error: int
+            output: string
+            head: string
+
+        discard this.update(newest)
+
+        error = this.exec(
+            @[
+                fmt "git for-each-ref --omit-empty --format='{tag} {hash}'",
+                fmt "'refs/{percy.name}/?*[0-9]*.*'",
+                fmt "'refs/{percy.name}/*'"
+            ],
+            output
+        )
+
+        if error != 0:
+            raise newException(ValueError, fmt "failed aggregating commits on {this.url}")
+
+        output = fmt "HEAD {this.head}\n{output}"
+
+        for reference in output.split('\n'):
+            let
+                parts = reference.split(' ', 1)
+            var
+                version: Version
+            if parts.len == 2:
+                try:
+                    if parts[0] == "HEAD":
+                        version = ver("head")
+                    else:
+                        version = ver(parts[0][prefix.len..^1])
+
+                    result.incl(Commit(
+                        id: parts[1],
+                        repository: this,
+                        version: version
+                    ))
+
+                except:
+                    raise newException(
+                        ValueError,
+                        fmt "Failed loading reference '{reference}': {getCurrentExceptionMsg()}"
+                    )
 
     method listDir*(path: string, reference: string = ""): seq[string] {. base .} =
         var

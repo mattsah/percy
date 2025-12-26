@@ -35,37 +35,37 @@ begin Loader:
     method getMappedPaths(targetDir: string): Table[string, string] {. base .} =
         let
             percyFile = targetDir / fmt "{percy.name}.json"
+            localMeta = this.settings.data.meta
         var
-            localMeta: JsonNode
             targetMeta: JsonNode
 
         result = initTable[string, string]()
 
         if fileExists(percyFile):
             try:
-                localMeta = this.settings.data.meta
                 targetMeta = json.parseFile(percyFile)["meta"]
                 this.settings.validateMeta(targetMeta)
+
+                if localMeta.hasKey("map") and targetMeta.hasKey("maps"):
+                    let
+                        localMap = localMeta["map"].getStr()
+                    if targetMeta["maps"].hasKey(localMap):
+                        let
+                            mapDir = targetDir / targetMeta["maps"][localMap].getStr()
+
+                        if dirExists(mapDir):
+                            for relPath in walkDirRec(mapDir, relative = true):
+                                result[relPath] = mapDir / relPath
             except:
                 discard
 
-            if localMeta.hasKey("map") and targetMeta.hasKey("maps"):
-                let
-                    localMap = localMeta["map"].getStr()
-                if targetMeta["maps"].hasKey(localMap):
-                    let
-                        mapDir = targetDir / targetMeta["maps"][localMap].getStr()
-
-                    if dirExists(mapDir):
-                        for relPath in walkDirRec(mapDir, relative = true):
-                            result[mapDir / relPath] = relPath
 
     method resolveMappedFile(repository: Repository, mapPath: string, relPath: string): string {. base .} =
         let
             currentHash = $secureHashFile(relPath)
             newHash = $secureHashFile(mapPath)
         var
-            status: int
+            error: int
             answer: string
             knownHash: string
             resolve = false
@@ -101,19 +101,45 @@ begin Loader:
                     result = newHash
                     copyFile(mapPath, relPath, {cfSymlinkFollow})
                 of "d":
-                    status = execCmd(fmt "git diff --no-index {relPath} {mapPath}")
+                    error = execCmd(fmt "git diff --no-index {relPath} {mapPath}")
                     discard
                 else:
                     fail fmt "Invalid Answer"
 
-    method removeMappedPaths(repository: Repository): void {. base .} =
-        discard
+    method removeMappedPaths(repository: Repository, targetDir: string, all: bool = false): void {. base .} =
+        let
+            mappedPaths = this.getMappedPaths(targetDir)
+        var
+            toRemove = newSeq[string]()
 
-    method updateMappedPaths(repository: Repository, targetDir: string): void {. base .} =
-        discard
+        for relPath, map in this.map:
+            var
+                newSubs = newJArray()
+
+            if not all and mappedPaths.contains(relPath):
+                continue
+
+            for sub in map:
+                if sub.getStr() == repository.hash:
+                    continue
+                newSubs.add(sub)
+
+            if newSubs.len == 0:
+                toRemove.add(relPath)
+            else:
+                this.map[relPath]["subs"] = newSubs
+
+        for relPath in toRemove:
+            if fileExists(relPath):
+                removeFile(relPath)
+            elif dirExists(relPath):
+                removeDir(relPath)
+            else:
+                discard
+            this.map.delete(relPath)
 
     method createMappedPaths(repository: Repository, targetDir: string): void {. base .} =
-        for mapPath, relPath in this.getMappedPaths(targetDir):
+        for relPath, mapPath in this.getMappedPaths(targetDir):
             var
                 hash: string
 
@@ -172,7 +198,8 @@ begin Loader:
         #
         for commit in solution:
             let
-                targetDir = vendorDir / this.settings.getWorkDir(commit.repository.url)
+                workDir = this.settings.getWorkDir(commit.repository.url)
+                targetDir = getVendorDir(workDir)
                 workTrees = commit.repository.workTrees
                 currentUrl = commit.repository.url
 
@@ -233,7 +260,7 @@ begin Loader:
             if subCount == delCount:
                 deleteDirs.incl(dir)
 
-        scanDeletes(vendorDir)
+        scanDeletes(getVendorDir())
 
         #
         # Report changes
@@ -272,7 +299,7 @@ begin Loader:
 
         this.openMapFile()
 
-        for dir in deleteDirs:
+        for deleteDir in deleteDirs:
             percy.execIn(
                 ExecHook as (
                     block:
@@ -286,14 +313,14 @@ begin Loader:
                 let
                     repository = this.settings.getRepository(output.strip())
 
-                this.removeMappedPaths(repository)
+                this.removeMappedPaths(repository, deleteDir, true)
 
-            removeDir(dir)
+            removeDir(deleteDir)
 
         for commit in solution:
             let
                 workDir = this.settings.getWorkDir(commit.repository.url)
-                targetDir = vendorDir / workDir
+                targetDir = getVendorDir(workDir)
                 commitHash = commit.id
 
             if updateDirs.contains(targetDir):
@@ -304,10 +331,11 @@ begin Loader:
                                 fmt "git checkout -q --detach {commitHash}"
                             ])
                     ),
-                    workDir
+                    targetDir
                 )
 
-                this.updateMappedPaths(commit.repository, targetDir)
+                this.removeMappedPaths(commit.repository, targetDir)
+                this.createMappedPaths(commit.repository, targetDir)
 
             elif createDirs.contains(targetDir):
                 error = commit.repository.exec(@[

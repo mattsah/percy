@@ -1,7 +1,6 @@
 import
     percy,
     semver,
-    std/re,
     lib/settings,
     lib/repository,
     mininim/cli
@@ -27,6 +26,7 @@ type
         versions*: string
         repository*: Repository
         constraint: Constraint
+        commits: seq[string]
 
     DepGraph* = ref object of Class
         quiet: bool
@@ -98,7 +98,7 @@ begin DepGraph:
     method checkConstraint*(requirement: Requirement, commit: Commit): bool {. base .} =
         if requirement.constraint.check(commit.version):
             result = true
-        elif requirement.constraint.check(v("0.0.0-commit." & commit.id)):
+        elif requirement.constraint.check(ver("0.0.0-commit." & commit.id)):
             result = true
         else:
             result = false
@@ -107,12 +107,6 @@ begin DepGraph:
     ##
     ]#
     method parseConstraint*(constraint: string, repository: Repository): Constraint {. base .} =
-        let
-            fix = proc(numericV: string): string =
-                result = numericV
-                for i in numericV.split('.').len..2:
-                    result = result & ".0"
-
         return Constraint(
             check: ConstraintHook as (
                 block:
@@ -120,28 +114,23 @@ begin DepGraph:
                         if constraint == "any":
                             return true
                         elif constraint.startsWith("=="):
-                            return v == v(fix(constraint[2..^1]))
+                            return v == ver(constraint[2..^1])
                         elif constraint.startsWith(">="):
-                            return v >= v(fix(constraint[2..^1]))
+                            return v >= ver(constraint[2..^1])
                         elif constraint.startsWith("<="):
-                            return v <= v(fix(constraint[2..^1]))
+                            return v <= ver(constraint[2..^1])
                         elif constraint.startsWith("<"):
-                            return v < v(fix(constraint[1..^1]))
+                            return v < ver(constraint[1..^1])
                         elif constraint.startsWith(">"):
-                            return v > v(fix(constraint[1..^1]))
+                            return v > ver(constraint[1..^1])
                         else:
                             if constraint.startsWith("@"):
                                 return v == v("0.0.0-commit." & constraint[1..^1])
                             elif constraint.startsWith("#"):
-                                let
-                                    head = constraint[1..^1].replace(re"[!@#$%^&*+_.,]", "-").toLower()
-                                if head == "head":
-                                    return v == v("0.0.0-HEAD")
-                                else:
-                                    return v == v("0.0.0-branch." & head)
+                                return v == ver(constraint[1..^1])
                             else:
                                 let
-                                    now = v(fix(constraint[1..^1]))
+                                    now = ver(constraint[1..^1])
                                 if constraint.startsWith("~"):
                                     let
                                         next = Version(
@@ -186,6 +175,7 @@ begin DepGraph:
         #
         var
             parts: seq[string]
+            commits: seq[string]
             package: string
             versions: string
             repository: Repository
@@ -218,6 +208,14 @@ begin DepGraph:
                     allItems = newSeq[Constraint](allParts.len)
                 for j, allConstraint in allParts:
                     allItems[j] = this.parseConstraint(allConstraint, repository)
+                    #
+                    # Handle specific commits by adding them to separate commit tracking
+                    #
+                    if allConstraint[0] in {'@', '#'}:
+                        let
+                            id = allConstraint[1..^1]
+                        if ver(id).build.startsWith("commit."):
+                            commits.add(id)
                 anyItems[i] = AllConstraint.init(allItems)
 
             constraint = AnyConstraint.init(anyItems)
@@ -226,7 +224,8 @@ begin DepGraph:
             package: package,
             versions: versions,
             repository: repository,
-            constraint: constraint
+            constraint: constraint,
+            commits: commits
         )
 
     #[
@@ -293,7 +292,10 @@ begin DepGraph:
     #[
     ##
     ]#
-    method addRepository*(repository: Repository): void {. base .} =
+    method addRepository*(requirement: Requirement): void {. base .} =
+        let
+            repository = requirement.repository
+
         if not this.commits.hasKey(repository):
             if not repository.exists:
                 raise MissingRepositoryException(
@@ -305,7 +307,15 @@ begin DepGraph:
                 print fmt "Graph: Adding Repository (Scanning Available Tags)"
                 print fmt "> Repository: {repository.url}"
 
-            this.commits[repository] = repository.commits(this.newest)
+            this.commits[repository] = repository.getCommits(this.newest)
+
+        if requirement.commits.len > 0:
+            for id in requirement.commits:
+                let
+                    commit = repository.getCommit(id)
+
+                if isSome(commit):
+                    this.commits[repository].incl(commit.get())
 
     #[
     ##
@@ -321,7 +331,7 @@ begin DepGraph:
             print fmt "> Dependent: {commit.repository.url} @ {commit.version}"
             print fmt "> Depends On: {requirement.repository.url} @ {requirement.versions}"
 
-        this.addRepository(requirement.repository)
+        this.addRepository(requirement)
 
         var
             toResolve = HashSet[Commit]()
