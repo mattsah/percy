@@ -11,7 +11,6 @@ begin UnsetCommand:
 
         let
             graph = this.getGraph()
-            solver = Solver.init()
             unsetType = console.getArg("type")
             unsetAlias = console.getArg("alias")
         var
@@ -40,18 +39,24 @@ begin UnsetCommand:
 
         this.settings.prepare(true)
 
-        try:
-            graph.build(this.nimbleInfo)
-            # TODO: Validate solution and suggest running update
+        result = this.resolve()
+
+        if result == 0:
             this.settings.save()
-        except:
-            raise getCurrentException() # replace with handling
+            print fmt "Successfully unset {unsetType}"
+            print fmt "> Repository: {repository.url}"
+            print fmt "> Package Alias: {unsetAlias}"
+        else:
+            case unsetType:
+                of "source":
+                    fail fmt "Unable to update after unsetting source, no files written"
+                    info fmt "> Repository: {repository.url}"
+                    info fmt "> Source Alias: {unsetAlias}"
 
-        print fmt "Successfully unset {unsetType}"
-        print fmt "> Repository: {repository.url}"
-        print fmt "> Package Alias: {unsetAlias}"
-        result = 0
-
+                of "package":
+                    fail fmt "Unable to update after unsetting package, no files written"
+                    info fmt "> Repository: {repository.url}"
+                    info fmt "> Package Alias: {unsetAlias}"
 
 shape UnsetCommand: @[
     Command(

@@ -1,8 +1,6 @@
 import
     percy,
-    basecli,
-    lib/depgraph,
-    nimble/parser
+    basecli
 
 type
     RequireCommand = ref object of BaseGraphCommand
@@ -13,7 +11,6 @@ begin RequireCommand:
 
         let
             graph = this.getGraph()
-            solver = Solver.init()
             package = console.getArg("package")
             versions = console.getArg("versions")
             requireCount = this.nimbleInfo.requires.len
@@ -22,7 +19,6 @@ begin RequireCommand:
             newContent: string
             requireLine: string
             requirement: Requirement
-            results: SolverResult
 
         if versions.toLower() == "any":
             requireLine = strip(fmt "{package}")
@@ -60,37 +56,13 @@ begin RequireCommand:
 
         newContent = parser.render(this.nimbleMap, this.nimbleInfo)
 
-        try:
-            graph.build(this.nimbleInfo)
+        result = this.resolve()
 
-            results = solver.solve(graph)
-
-            if isSome(results.solution):
-                discard this.loadSolution(results.solution.get())
-                writeFile(this.nimbleFile, newContent)
-                result = 0
-            else:
-                fail fmt "Could not find solution"
-                if this.verbosity > 0:
-                    graph.report()
-                result = 4
-
-        except Exception as e:
-            graph.reportStack()
-            fail fmt "Failed updating with new requirement"
-            info fmt "> Error: {e.msg}"
-
-            with e of MissingRepositoryException:
-                info fmt "> Tried: {e.repository.url}"
-                if graph.stack.len > 1 and not e.repository.url.contains("://"):
-                    info fmt """
-                    > Hint: A package may be referring to another as an unexpected name.
-                            Use `percy set source` to add a repository that can resolve
-                            the package, or, use `percy set package` set directly.
-                    """
-
-        finally:
-            return 3
+        if result == 0:
+            writeFile(this.nimbleFile, newContent)
+        else:
+            fail fmt "Unable to update after adding new requirement, no files written"
+            info fmt "> Package: {package}"
 
 shape RequireCommand: @[
     Command(

@@ -14,7 +14,6 @@ begin SetCommand:
 
         let
             graph = this.getGraph()
-            solver = Solver.init()
             setUrl = console.getArg("url")
             setType = console.getArg("type")
             repository = Repository.init(setUrl)
@@ -59,17 +58,24 @@ begin SetCommand:
 
         this.settings.prepare(true)
 
-        try:
-            graph.build(this.nimbleInfo)
-            # TODO: Validate solution and suggest running update
-            this.settings.save()
-        except:
-            raise getCurrentException() # replace with handling
+        result = this.resolve()
 
-        print fmt "Successfully added {setType}"
-        print fmt "> Repository: {repository.url}"
-        print fmt "> Package Alias: {setAlias}"
-        result = 0
+        if result == 0:
+            this.settings.save()
+            print fmt "Successfully added {setType}"
+            print fmt "> Repository: {repository.url}"
+            print fmt "> Package Alias: {setAlias}"
+        else:
+            case setType:
+                of "source":
+                    fail fmt "Unable to update after setting source, no files written"
+                    info fmt "> Repository: {repository.url}"
+                    info fmt "> Source Alias: {setAlias}"
+
+                of "package":
+                    fail fmt "Unable to update after setting package, no files written"
+                    info fmt "> Repository: {repository.url}"
+                    info fmt "> Package Alias: {setAlias}"
 
 shape SetCommand: @[
     Command(

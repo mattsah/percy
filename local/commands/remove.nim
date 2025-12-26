@@ -11,13 +11,11 @@ begin RemoveCommand:
 
         let
             graph = this.getGraph()
-            solver = Solver.init()
             package = console.getArg("package")
             repository = this.settings.getRepository(package)
         var
             isRemoved = false
             newContent: string
-            results: SolverResult
 
         for i, requirements in this.nimbleInfo.requires:
             for j, existingLine in requirements:
@@ -93,21 +91,13 @@ begin RemoveCommand:
 
         newContent = parser.render(this.nimbleMap, this.nimbleInfo)
 
-        try:
-            graph.build(this.nimbleInfo)
+        result = this.resolve()
 
-            results = solver.solve(graph)
-
-            if isSome(results.solution):
-                discard this.loadSolution(results.solution.get())
-                writeFile(this.nimbleFile, newContent)
-            else:
-                discard
-        except:
-            graph.reportStack()
-            fail fmt "Failed updating with new requirement"
-            info fmt "  Error: {getCurrentExceptionMsg()}"
-            return 3
+        if result == 0:
+            writeFile(this.nimbleFile, newContent)
+        else:
+            fail fmt "Unable to update after removing requirement, no files written"
+            info fmt "> Package: {package}"
 
 shape RemoveCommand: @[
     Command(

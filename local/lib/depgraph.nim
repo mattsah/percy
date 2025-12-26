@@ -237,9 +237,7 @@ begin DepGraph:
         print fmt "> Size: {$this.stack.len}"
         print fmt "> Stack:"
         for i, requirement in this.stack:
-            print fmt """    {alignLeft("", (i+1), ' ')}""", 0
-            if i != 0:
-                print " ↳ ", 0
+            print fmt """    {alignLeft("", (i+1), ' ')}  ↳ """, 0
             print fmt """{requirement.package} {requirement.versions}"""
 
     #[
@@ -299,7 +297,7 @@ begin DepGraph:
         if not this.commits.hasKey(repository):
             if not repository.exists:
                 raise MissingRepositoryException(
-                    msg: fmt "required repository '{repository.original}' does not seem to exist",
+                    msg: fmt "required package '{repository.original}' does not seem to exist",
                     repository: repository
                 )
 
@@ -414,7 +412,6 @@ begin DepGraph:
                     Descending
                 )
                 .toOrderedSet()
-
 #[
 ##
 ]#

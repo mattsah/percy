@@ -57,7 +57,7 @@ begin Settings:
 
         result = this.cache[instance.shaHash]
 
-    method validatePackages(node: JsonNode): void {. base .} =
+    method validatePackages*(node: JsonNode): void {. base .} =
         if node.kind != JObject:
             raise newException(ValueError, "`packages` must be an object.")
         for key, value in node:
@@ -79,7 +79,7 @@ begin Settings:
                     fmt "package @ '{key}' contains an invalid value: {getCurrentExceptionMsg()}."
                 )
 
-    method validateSources(node: JsonNode): void {. base .} =
+    method validateSources*(node: JsonNode): void {. base .} =
         if node.kind != JObject:
             raise newException(ValueError, "`sources` must be an object.")
         for key, value in node:
@@ -104,7 +104,9 @@ begin Settings:
     #[
         Validates meta information from a JSON config file (currently not used)
     ]#
-    method validateMeta(node: JsonNode): void {. base .} =
+    method validateMeta*(node: JsonNode): void {. base .} =
+        if node.kind != JObject:
+            raise newException(ValueError, "`meta` must be an object.")
         discard
 
     #[
@@ -246,6 +248,7 @@ begin Settings:
                 case key:
                     of "meta":
                         this.validateMeta(value)
+                        this.data.meta = value
 
                     of "sources":
                         this.validateSources(value)
@@ -276,8 +279,6 @@ begin Settings:
     method load(config: string = percy.name & ".json"): void {. base .} =
         var
             node: JsonNode
-        let
-            index = percy.target / "index." & config
 
         this.config = config
 

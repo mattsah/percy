@@ -12,6 +12,10 @@ const
     name* = "percy"
     target* = "vendor"
 
+let
+    vendorDir* = getCurrentDir() / percy.target
+
+
 type
     ExecHook* = proc(): void
 

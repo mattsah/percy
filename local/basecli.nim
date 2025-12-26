@@ -1,15 +1,17 @@
 import
     percy,
     mininim/cli,
-    lib/repository,
     lib/settings,
-    lib/depgraph
+    lib/depgraph,
+    lib/lockfile,
+    lib/loader
 
 export
     cli,
     parser,
     settings,
-    depgraph
+    depgraph,
+    loader
 
 type
     BaseCommand* = ref object of Class
@@ -62,160 +64,67 @@ begin BaseGraphCommand:
         if not foundNimble:
             raise newException(ValueError, "Could not find .nimble file")
 
-    method getGraph*(quiet: bool = false): DepGraph {. base .} =
+    method getGraph*(): DepGraph {. base .} =
         result = DepGraph.init(this.settings, this.verbosity == 0)
 
-    method loadSolution*(solution: Solution, force: bool = false): seq[Checkout] {. base .} =
-        var
-            error: int
-            output: string
-            pathList: seq[string]
-            retainDirs: HashSet[string]
-            deleteDirs: OrderedSet[string]
-            updateDirs: OrderedSet[string]
-            createDirs: OrderedSet[string]
-            workTrees: Table[string, WorkTree]
+    method getLoader*(): Loader {. base .} =
+        result = Loader.init(this.settings, this.verbosity == 0)
+
+    method resolve*(newest: bool = false, force: bool = false): int {. base .} =
         let
-            vendorDir = getCurrentDir() / percy.target
+            graph = this.getGraph()
+            loader = this.getLoader()
+            solver = Solver.init()
+        var
+            results: SolverResult
+            checkouts: seq[Checkout]
 
-        if this.verbosity > 0:
-            print "Loading Solution"
+        try:
+            graph.build(this.nimbleInfo, newest)
+        except Exception as e:
+            graph.reportStack()
+            fail fmt "Failed Updating"
+            info fmt "> Error: {e.msg}"
 
-        #
-        # Loop through all of our workDirs based commits in the solution and the corresponding
-        # work tree.  Mark directories depending on their state, we can either:
-        # - retain
-        # - create
-        # - update
-        #
-        # Deletes are handled after this as we want to cleanup directories no longer being used.
-        #
-        for commit in solution:
-            let
-                targetDir = vendorDir / this.settings.getWorkDir(commit.repository.url)
-                workTrees = commit.repository.workTrees
-                currentUrl = commit.repository.url
-
-            if not workTrees.hasKey(targetDir):
-                if dirExists(targetDir) and not force:
-                    info fmt "> Skip: '{targetDir}': non-worktree of {currentUrl} (force with -f)"
-                    retainDirs.incl(targetDir)
-                else:
-                    createDirs.incl(targetDir)
-            else:
-                let
-                    branch = workTrees[targetDir].branch
-                    head = workTrees[targetDir].head
-
-                if head == commit.id: # We can just retain the current state if it matches
-                    retainDirs.incl(targetDir)
-                else: # If it doesn't match we want to check if there's a branch checked out
-                    if branch.len != 0 and not force: # Someone may be working on something
-                        info fmt "> Skip: '{targetDir}': using branch `{branch}` (force with -f)"
-                        retainDirs.incl(targetDir)
+            with e of MissingRepositoryException:
+                info fmt "> Tried: {e.repository.url}"
+                if not e.repository.url.contains("://"):
+                    if graph.stack.len > 1:
+                        info fmt "> Required By: {graph.stack[^2].repository.url}"
+                        info fmt """
+                            > Hint: Check the requiring repository for custom sources or package
+                                    settings that may be able to resolve the package alias to an
+                                    appropriate repository, then use `percy set` to add it.
+                        """
                     else:
-                        updateDirs.incl(targetDir)
-
-        proc scanDeletes(dir: string): void =
-            var
-                delCount = 0
-                subCount = 0
-            for item in walkDir(dir):
-                inc subCount
-                if not dirExists(item.path): # We're only looking for directories
-                    continue
-                if symLinkExists(item.path): # Enable people to link to work on things
-                    continue
-                if retainDirs.contains(item.path):
-                    continue
-                if percy.hasFile(item.path):
-                    if dirExists(item.path / ".git"): # Check if this is a git directory
-                        percy.execIn(
-                            ExecHook as (
-                                block:
-                                    error = percy.execCmdCapture(output, @[
-                                        fmt "git status --porcelain"
-                                    ])
-                            ),
-                            item.path
-                        )
-
-                        if not error and output.len > 0 and not force:
-                            info fmt "> Skip: '{item.path}': has unsaved changes (force with -f)"
-                            if updateDirs.contains(item.path):
-                                updateDirs.excl(item.path)
-
-                    if not updateDirs.contains(item.path):
-                        deleteDirs.incl(item.path)
-                        inc delCount
-                else:
-                    scanDeletes(item.path)
-            if subCount == delCount:
-                deleteDirs.incl(dir)
-
-        scanDeletes(vendorDir)
-
-        #
-        # Report changes
-        #
-
-        deleteDirs = deleteDirs.toSeq().sortedByIt(it.len).reversed().toOrderedSet()
-        updateDirs = updateDirs.toSeq().sortedByIt(it.len).reversed().toOrderedSet()
-        createDirs = createDirs.toSeq().sortedByIt(it.len).reversed().toOrderedSet()
-
-        let # optimized
-            hasDeleteDirs = deleteDirs.len > 0
-            hasUpdateDirs = updateDirs.len > 0
-            hasCreateDirs = createDirs.len > 0
+                        info fmt """
+                            > Hint: Your project is trying to use a package that it can't find. You
+                                    may have forgotten to use `percy set source` to add a source
+                                    that can resolve the package alias to a repository. You can
+                                    also use `percy set package` to set it directly.
+                        """
+            return 1
 
         if this.verbosity > 0:
-            if hasDeleteDirs or hasUpdateDirs or hasCreateDirs:
-                print fmt "> Solution: Changes Required"
-                if hasDeleteDirs:
-                    print fmt "> Delete:"
-                    for dir in deleteDirs:
-                        print fmt ">    {dir}"
-                if hasUpdateDirs:
-                    print fmt ">  Update:"
-                    for dir in updateDirs:
-                        print fmt ">    {dir}"
-                if hasCreateDirs:
-                    print fmt ">  Create:"
-                    for dir in createDirs:
-                        print fmt ">    {dir}"
-            else:
-                print fmt "> Solution: There Are No Applicable Changes"
+            graph.report()
 
-        #
-        # Perform loading
-        #
-        for dir in deleteDirs:
-            removeDir(dir)
+        results = solver.solve(graph)
 
-        for commit in solution:
-            let
-                workDir = this.settings.getWorkDir(commit.repository.url)
-                targetDir = vendorDir / workDir
-                commitHash = commit.id
+        if isNone(results.solution):
+            fail fmt "There Is No Available Solution"
+            return 1
+        else:
+            checkouts = loader.loadSolution(results.solution.get(), force)
 
-            if updateDirs.contains(targetDir):
-                percy.execIn(
-                    ExecHook as (
-                        block:
-                            error = percy.execCmd(@[
-                                fmt "git checkout -q --detach {commitHash}"
-                            ])
-                    ),
-                    workDir
-                )
-            elif createDirs.contains(targetDir):
-                error = commit.repository.exec(@[
-                    fmt "git worktree add -d {targetDir} {commitHash}"
-                ], output)
+            var
+                lock = newJArray()
 
-            if commit.info.srcDir.len > 0: # optimized
-                pathList.add(fmt "{percy.target / workDir / commit.info.srcDir}")
-            else:
-                pathList.add(fmt "{percy.target / workDir}")
+            for commit in results.solution.get():
+                lock.add(commit.toLockFile())
 
-        writeFile(fmt "vendor/{percy.name}.paths", pathList.join("\n"))
+            writeFile("percy.lock", pretty(lock))
+
+
+
+
+

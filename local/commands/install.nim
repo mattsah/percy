@@ -11,6 +11,7 @@ begin InstallCommand:
         result = super.execute(console)
 
         let
+            loader = this.getLoader()
             force = parseBool(console.getOpt("force"))
 
         if fileExists("percy.lock"):
@@ -25,7 +26,7 @@ begin InstallCommand:
                     discard commit.repository.clone()
                 solution.add(commit)
 
-            checkouts = this.loadSolution(solution, force)
+            checkouts = loader.loadSolution(solution, force)
 
         else:
             let
