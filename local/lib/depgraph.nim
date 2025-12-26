@@ -121,17 +121,23 @@ begin DepGraph:
                             return v <= ver(constraint[2..^1])
                         elif constraint.startsWith("<"):
                             return v < ver(constraint[1..^1])
-                        elif constraint.startsWith(">"):
+                        elif constraint[0] == '>':
                             return v > ver(constraint[1..^1])
                         else:
-                            if constraint.startsWith("@"):
-                                return v == v("0.0.0-commit." & constraint[1..^1])
-                            elif constraint.startsWith("#"):
+                            if constraint[0] in {'@', '#'}:
+                                let
+                                    version = ver(constraint[1..^1])
+
+                                if v.build.startsWith("commit."):
+                                    if version.build.startsWith("commit.)"):
+                                        return v.build.startsWith(version.build) or
+                                               version.build.startsWith(v.build)
+
                                 return v == ver(constraint[1..^1])
                             else:
                                 let
                                     now = ver(constraint[1..^1])
-                                if constraint.startsWith("~"):
+                                if constraint[0] == '~':
                                     let
                                         next = Version(
                                             major: now.major,
@@ -139,7 +145,7 @@ begin DepGraph:
                                             patch: 0
                                         )
                                     return v >= now and v < next
-                                elif constraint.startsWith("^"):
+                                elif constraint[0] == '^':
                                     let
                                         next = Version(
                                             major: now.major + 1,

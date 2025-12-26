@@ -299,14 +299,14 @@ begin Repository:
 
         error = this.exec(
             @[
-                fmt "git show {id}"
+                fmt "git reve-parse {id}"
             ],
             output
         )
 
-        if error != 0:
+        if error == 0:
             result = some(Commit(
-                id: id,
+                id: output.strip(),
                 version: ver(id),
                 repository: this
             ))

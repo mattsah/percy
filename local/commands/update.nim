@@ -1,7 +1,6 @@
 import
     percy,
-    basecli,
-    lib/lockfile
+    basecli
 
 type
     UpdateCommand = ref object of BaseGraphCommand

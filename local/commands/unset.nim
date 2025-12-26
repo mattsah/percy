@@ -10,7 +10,6 @@ begin UnsetCommand:
         result = super.execute(console)
 
         let
-            graph = this.getGraph()
             unsetType = console.getArg("type")
             unsetAlias = console.getArg("alias")
         var

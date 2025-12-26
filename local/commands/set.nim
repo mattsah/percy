@@ -13,7 +13,6 @@ begin SetCommand:
         result = super.execute(console)
 
         let
-            graph = this.getGraph()
             setUrl = console.getArg("url")
             setType = console.getArg("type")
             repository = Repository.init(setUrl)
