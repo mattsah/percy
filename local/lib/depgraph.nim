@@ -242,7 +242,7 @@ begin DepGraph:
         print fmt "> Size: {$this.stack.len}"
         print fmt "> Stack:"
         for i, requirement in this.stack:
-            print fmt """    {alignLeft("", (i+1), ' ')}  ↳ """, 0
+            print fmt """  {alignLeft("", (i+1), ' ')}  ↳ """, 0
             print fmt """{requirement.package} {requirement.versions}"""
 
     #[

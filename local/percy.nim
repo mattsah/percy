@@ -123,6 +123,8 @@ proc ver*(version: string): Version =
         return v("0.0.0-HEAD")
     if lowered.len >= 4 and lowered.len <= 40 and lowered.match(re"^[a-f0-9]+$"):
         return v("0.0.0-commit." & lowered)
+    if lowered.startsWith("head@"):
+        return v("0.0.0-branch." & cleaned[5..^1])
     if lowered.match(re"^(v?)[0-9]+\.[0-9]+.*"):
         var
             verParts = lowered.split('.')
@@ -140,5 +142,3 @@ proc ver*(version: string): Version =
             newVersion = newVersion & ".0"
 
         return v(newVersion)
-
-    return v("0.0.0-branch." & cleaned)

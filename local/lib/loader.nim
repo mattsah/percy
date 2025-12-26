@@ -78,7 +78,7 @@ begin Loader:
         elif currentHash == knownHash: # the file has not changed
             let
                 subs = this.map[relPath]["subs"]
-            if subs.len == 1 and subs.contains(%repository.hash): # the file is ours
+            if subs.len == 1 and subs.contains(%repository.shaHash): # the file is ours
                 copyFile(mapPath, relPath, {cfSymlinkFollow})
                 result = newHash
             else: # the file belongs to someone else or multiple... check
@@ -120,7 +120,7 @@ begin Loader:
                 continue
 
             for sub in map:
-                if sub.getStr() == repository.hash:
+                if sub.getStr() == repository.shaHash:
                     continue
                 newSubs.add(sub)
 
@@ -166,12 +166,12 @@ begin Loader:
                 this.map[relPath] = %(
                     hash: hash,
                     subs: @[
-                        repository.hash
+                        repository.shaHash
                     ]
                 )
             else:
                 this.map[relPath]["hash"] = %hash
-                this.map[relPath]["subs"].add(%repository.hash)
+                this.map[relPath]["subs"].add(%repository.shaHash)
 
     method loadSolution*(solution: Solution, force: bool = false): seq[Checkout] {. base .} =
         var
@@ -338,9 +338,12 @@ begin Loader:
                 this.createMappedPaths(commit.repository, targetDir)
 
             elif createDirs.contains(targetDir):
-                error = commit.repository.exec(@[
-                    fmt "git worktree add -d {targetDir} {commitHash}"
-                ], output)
+                error = commit.repository.exec(
+                    @[
+                        fmt "git worktree add -d {targetDir} {commitHash}"
+                    ],
+                    output
+                )
 
                 this.createMappedPaths(commit.repository, targetDir)
 

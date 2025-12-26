@@ -156,7 +156,7 @@ begin Repository:
     method exec*(cmdParts: seq[string], output: var string): int {. base .} =
         var
             error: int
-            wrappedOutput: string
+            safeOutput: string
 
         if not this.cacheExists:
             raise newException(ValueError, fmt "cannot exec commands in {this.url}, no local cache")
@@ -164,13 +164,13 @@ begin Repository:
         percy.execIn(
             ExecHook as (
                 block:
-                    error = percy.execCmdCapture(wrappedOutput, @[cmdParts.join(" ")])
+                    error = percy.execCmdCaptureAll(safeOutput, @[cmdParts.join(" ")])
             ),
             this.cacheDir
         )
 
         result = error
-        output = wrappedOutput
+        output = safeOutput
 
     method fetch*(): bool {. base .} =
         var
@@ -180,14 +180,20 @@ begin Repository:
             @[
                 fmt "git fetch origin -f --prune",
                 fmt "'+refs/tags/*:refs/{percy.name}/*'",
-                fmt "'+refs/heads/*:refs/{percy.name}/*'",
+                fmt "'+refs/heads/*:refs/{percy.name}/head@*'",
                 fmt "'HEAD'"
             ],
             output
         )
 
-        if error != 0 or not fileExists(this.cacheDir / "FETCH_HEAD"): # optimized
-            raise newException(ValueError, fmt "failed fetching from {this.url}: {output}")
+        if error != 0 or not fileExists(this.cacheDir / "FETCH_HEAD"):
+            if output.len == 0:
+                output = "unknown problem"
+
+            raise newException(
+                ValueError,
+                fmt "failed fetching from {this.url} ({this.shaHash}): {output}"
+            )
 
         result = output.len > 0
 
@@ -299,7 +305,7 @@ begin Repository:
 
         error = this.exec(
             @[
-                fmt "git reve-parse {id}"
+                fmt "git rev-parse {id}"
             ],
             output
         )
@@ -327,7 +333,6 @@ begin Repository:
         error = this.exec(
             @[
                 fmt "git for-each-ref --omit-empty --format='{tag} {hash}'",
-                fmt "'refs/{percy.name}/?*[0-9]*.*'",
                 fmt "'refs/{percy.name}/*'"
             ],
             output
