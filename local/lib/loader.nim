@@ -41,14 +41,14 @@ begin Loader:
         else:
             discard
 
-    method getMappedPaths(targetDir: string): Table[string, string] {. base .} =
+    method getMappedPaths(targetDir: string): OrderedTable[string, string] {. base .} =
         let
             percyFile = targetDir / fmt "{percy.name}.json"
             localMeta = this.settings.data.meta
         var
             targetMeta: JsonNode
 
-        result = initTable[string, string]()
+        result = initOrderedTable[string, string]()
 
         if fileExists(percyFile):
             try:
@@ -133,6 +133,8 @@ begin Loader:
 
                 if newSubs.len == 0:
                     toRemove.add(relPath)
+                elif newSubs.len == 1 and newSubs[0].getStr() == "main":
+                    this.map.delete(relPath)
                 else:
                     this.map[relPath]["subs"] = newSubs
 
@@ -149,6 +151,9 @@ begin Loader:
         for relPath, mapPath in this.getMappedPaths(targetDir):
             var
                 hash: string
+                subs = @[
+                    repository.shaHash
+                ]
 
             if dirExists(mapPath):
                 if fileExists(relPath):
@@ -157,6 +162,8 @@ begin Loader:
                     )
                 if not dirExists(relPath):
                     createDir(relPath)
+                else:
+                    subs.add("main")
 
             if fileExists(mapPath):
                 if dirExists(relPath):
@@ -167,14 +174,13 @@ begin Loader:
                     copyFile(mapPath, relPath)
                     hash = $secureHashFile(relPath)
                 else:
+                    subs.add("main")
                     hash = this.resolveMappedFile(repository, mapPath, relPath)
 
             if not this.map.hasKey(relPath):
                 this.map[relPath] = %(
                     hash: hash,
-                    subs: @[
-                        repository.shaHash
-                    ]
+                    subs: subs
                 )
             else:
                 this.map[relPath]["hash"] = %hash
