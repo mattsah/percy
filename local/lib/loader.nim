@@ -80,10 +80,12 @@ begin Loader:
             resolve = false
 
         if this.map.hasKey(relPath):
-            knownHash = $(this.map[relPath]["hash"])
+            knownHash = this.map[relPath]["hash"].getStr()
 
-        if currentHash == newHash: # existing version is already installed, no need to copy
+        if newHash == currentHash: # existing version is already installed, no need to copy
             result = currentHash
+        elif newHash == knownHash: # the file has not change in the repo since the last time
+            result = knownHash
         elif currentHash == knownHash: # the file has not changed
             let
                 subs = this.map[relPath]["subs"]
@@ -101,19 +103,20 @@ begin Loader:
                 print fmt "> New File: {mapPath}"
                 print fmt "> Existing File: {relPath}"
                 print fmt "> Do you want to install the new version? (y/n/[D]iff): ", 0
-                answer = stdin.readLine()
+                answer = stdin.readLine().strip()
 
-            case answer.toLower():
-                of "n":
-                    result = knownHash
-                of "y":
-                    result = newHash
-                    copyFile(mapPath, relPath, {cfSymlinkFollow})
-                of "d":
-                    error = execCmd(fmt "git diff --no-index {relPath} {mapPath}")
-                    discard
-                else:
-                    fail fmt "Invalid Answer"
+                case answer.toLower():
+                    of "n":
+                        result = newHash
+                        break
+                    of "y":
+                        result = newHash
+                        copyFile(mapPath, relPath, {cfSymlinkFollow})
+                        break
+                    of "d":
+                        error = execCmd(fmt "git diff --no-index {relPath} {mapPath}")
+                    else:
+                        fail fmt "Invalid Answer"
 
     method removeMappedPaths(repository: Repository, targetDir: string, all: bool = false): void {. base .} =
         let
@@ -184,7 +187,8 @@ begin Loader:
                 )
             else:
                 this.map[relPath]["hash"] = %hash
-                this.map[relPath]["subs"].add(%repository.shaHash)
+                if not this.map[relPath]["subs"].contains(%repository.shaHash):
+                    this.map[relPath]["subs"].add(%repository.shaHash)
 
     method loadSolution*(solution: Solution, preserve: bool = false, force: bool = false): seq[Checkout] {. base .} =
         var
@@ -227,14 +231,14 @@ begin Loader:
                     branch = workTrees[targetDir].branch
                     head = workTrees[targetDir].head
 
-                if head == commit.id: # We can just retain the current state if it matches
+                if head == commit.id and not force: # We can just retain the current state if it matches
+                    info fmt "> Skip: '{targetDir}': already at the appropriate commit (force with -f)"
                     retainDirs.incl(targetDir)
-                else: # If it doesn't match we want to check if there's a branch checked out
-                    if branch.len != 0 and not force: # Someone may be working on something
-                        info fmt "> Skip: '{targetDir}': using branch `{branch}` (force with -f)"
-                        retainDirs.incl(targetDir)
-                    else:
-                        updateDirs.incl(targetDir)
+                elif branch.len != 0 and not force: # Someone may be working on something
+                    info fmt "> Skip: '{targetDir}': using branch `{branch}` (force with -f)"
+                    retainDirs.incl(targetDir)
+                else:
+                    updateDirs.incl(targetDir)
 
         proc scanDeletes(dir: string): void =
             var

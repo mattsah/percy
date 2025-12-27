@@ -12,8 +12,9 @@ begin UpdateCommand:
         let
             force = parseBool(console.getOpt("force"))
             newest = parseBool(console.getOpt("newest"))
+            preserve = parseBool(console.getOpt("preserve"))
 
-        result = this.resolve(newest, force)
+        result = this.resolve(newest, preserve, force)
 
 shape UpdateCommand: @[
     Command(
