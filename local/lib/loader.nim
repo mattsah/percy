@@ -34,12 +34,31 @@ begin Loader:
     method writeMapFile(): void {. base .} =
         let
             mapFile = fmt "{percy.name}.map"
+        var
+            toRemove: seq[string]
+
+        for relPath, map in this.map:
+            if map["subs"].len == 0:
+                toRemove.add(relPath)
+
+                if fileExists(relPath):
+                    removeFile(relPath)
+                elif dirExists(relPath):
+                    removeDir(relPath)
+                else:
+                    discard
+            else:
+                if map["subs"] == %["main"]:
+                    toRemove.add(relPath)
+
+        for relPath in toRemove:
+            this.map.delete(relPath)
+
         if this.map.len:
             writeFile(mapFile, pretty(this.map))
-        elif fileExists(mapFile):
-            removeFile(mapFile)
         else:
-            discard
+            if fileExists(mapFile):
+                removeFile(mapFile)
 
     method getMappedPaths(targetDir: string): OrderedTable[string, string] {. base .} =
         let
@@ -86,15 +105,20 @@ begin Loader:
             result = currentHash
         elif newHash == knownHash: # the file has not change in the repo since the last time
             result = knownHash
-        elif currentHash == knownHash: # the file has not changed
+        elif currentHash == knownHash: # the file has not been changed locally
             let
                 subs = this.map[relPath]["subs"]
-            if subs.len == 1 and subs.contains(%repository.shaHash): # the file is ours
+            #
+            # Although we know the file has not been changed we want to ensure that either there
+            # is no current other subscribers or that we are the only subscriber to make sure it
+            # belongs to us or a related fork.  Otherwise, we'll want to force user resolution.
+            #
+            if subs.len == 0 or (subs.len == 1 and subs.contains(%repository.shaHash)):
                 copyFile(mapPath, relPath, {cfSymlinkFollow})
                 result = newHash
-            else: # the file belongs to someone else or multiple... check
+            else:
                 resolve = true
-        else: # the file has changed
+        else: # the file has changed locally and we need the user to resolve
             resolve = true
 
         if resolve:
@@ -121,8 +145,6 @@ begin Loader:
     method removeMappedPaths(repository: Repository, targetDir: string, all: bool = false): void {. base .} =
         let
             mappedPaths = this.getMappedPaths(targetDir)
-        var
-            toRemove = newSeq[string]()
 
         for relPath, map in this.map:
             var
@@ -134,21 +156,7 @@ begin Loader:
                         continue
                     newSubs.add(sub)
 
-                if newSubs.len == 0:
-                    toRemove.add(relPath)
-                elif newSubs.len == 1 and newSubs[0].getStr() == "main":
-                    this.map.delete(relPath)
-                else:
-                    this.map[relPath]["subs"] = newSubs
-
-        for relPath in toRemove:
-            if fileExists(relPath):
-                removeFile(relPath)
-            elif dirExists(relPath):
-                removeDir(relPath)
-            else:
-                discard
-            this.map.delete(relPath)
+                this.map[relPath]["subs"] = newSubs
 
     method createMappedPaths(repository: Repository, targetDir: string): void {. base .} =
         for relPath, mapPath in this.getMappedPaths(targetDir):
