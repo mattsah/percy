@@ -282,7 +282,7 @@ begin DepGraph:
                             print fmt "> Repository: {commit.repository.url}"
                             print fmt "> Commit: {commit.version} ({commit.id})"
                             print indent(contents, 4)
-                        commit.info = parser.parseFile(contents)
+                        commit.info = parser.parse(contents)
                     except:
                         print fmt "Graph: Failed parsing nimble file {file}"
                         print fmt "> Repository: {commit.repository.url}"

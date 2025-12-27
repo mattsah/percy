@@ -31,7 +31,7 @@ const
         ]
     }.toTable()
 
-proc parseFile*(source: string, map: var string): NimbleFileInfo =
+proc parse*(source: string, map: var string): NimbleFileInfo =
     let
         sourceLines = split(source & "\n", '\n')
     var
@@ -204,13 +204,14 @@ proc parseFile*(source: string, map: var string): NimbleFileInfo =
 
     result = info.to(NimbleFileInfo)
 
-proc parseFile*(source: string): NimbleFileInfo =
+proc parse*(source: string): NimbleFileInfo =
     var
         map: string
-    result = parseFile(source, map)
+    result = parse(source, map)
 
 proc render*(map: string, info: NimbleFileInfo): string =
     result = map
+
     for field, value in %info:
         if field == "requires":
             var
@@ -238,3 +239,5 @@ proc render*(map: string, info: NimbleFileInfo): string =
                 result = result.replace(token, field & " = toTable(" & value.pretty & ")")
             else:
                 discard
+
+    result = result.strip() & "\n"

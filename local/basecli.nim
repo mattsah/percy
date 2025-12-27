@@ -57,7 +57,7 @@ begin BaseGraphCommand:
 
         for file in walkFiles("*.nimble"):
             this.nimbleFile = file
-            this.nimbleInfo = parser.parseFile(readFile(file), this.nimbleMap)
+            this.nimbleInfo = parser.parse(readFile(file), this.nimbleMap)
             foundNimble = true
             break
 
