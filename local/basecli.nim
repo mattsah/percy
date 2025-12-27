@@ -70,7 +70,7 @@ begin BaseGraphCommand:
     method getLoader*(): Loader {. base .} =
         result = Loader.init(this.settings, this.verbosity == 0)
 
-    method resolve*(newest: bool = false, force: bool = false): int {. base .} =
+    method resolve*(newest: bool = false, preserve: bool = false, force: bool = false): int {. base .} =
         let
             graph = this.getGraph()
             loader = this.getLoader()
@@ -114,7 +114,7 @@ begin BaseGraphCommand:
             fail fmt "There Is No Available Solution"
             return 1
         else:
-            checkouts = loader.loadSolution(results.solution.get(), force)
+            checkouts = loader.loadSolution(results.solution.get(), preserve, force)
 
             var
                 lock = newJArray()

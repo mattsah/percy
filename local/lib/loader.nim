@@ -186,7 +186,7 @@ begin Loader:
                 this.map[relPath]["hash"] = %hash
                 this.map[relPath]["subs"].add(%repository.shaHash)
 
-    method loadSolution*(solution: Solution, force: bool = false): seq[Checkout] {. base .} =
+    method loadSolution*(solution: Solution, preserve: bool = false, force: bool = false): seq[Checkout] {. base .} =
         var
             error: int
             output: string
@@ -310,7 +310,8 @@ begin Loader:
         # Perform loading
         #
 
-        this.openMapFile()
+        if not preserve:
+            this.openMapFile()
 
         for deleteDir in deleteDirs:
             percy.execIn(
@@ -327,7 +328,8 @@ begin Loader:
                 let
                     repository = this.settings.getRepository(output.strip())
 
-                this.removeMappedPaths(repository, deleteDir, true)
+                if not preserve:
+                    this.removeMappedPaths(repository, deleteDir, true)
 
             removeDir(deleteDir)
 
@@ -348,8 +350,9 @@ begin Loader:
                     targetDir
                 )
 
-                this.removeMappedPaths(commit.repository, targetDir)
-                this.createMappedPaths(commit.repository, targetDir)
+                if not preserve:
+                    this.removeMappedPaths(commit.repository, targetDir)
+                    this.createMappedPaths(commit.repository, targetDir)
 
             elif createDirs.contains(targetDir):
                 error = commit.repository.exec(
@@ -359,7 +362,8 @@ begin Loader:
                     output
                 )
 
-                this.createMappedPaths(commit.repository, targetDir)
+                if not preserve:
+                    this.createMappedPaths(commit.repository, targetDir)
 
             else:
                 discard
@@ -369,6 +373,7 @@ begin Loader:
             else:
                 pathList.add(fmt "{percy.target / workDir}")
 
-        this.writeMapFile()
+        if not preserve:
+            this.writeMapFile()
 
         writeFile(fmt "vendor/{percy.name}.paths", pathList.join("\n"))

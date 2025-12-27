@@ -31,6 +31,11 @@ shape UpdateCommand: @[
                 flag: 'n',
                 name: "newest",
                 description: "Force fetching of HEADs even if local cache is not stale"
+            ),
+            Opt(
+                flag: 'p',
+                name: "preserve",
+                description: "Preserve all files by skipping any mapping operations"
             )
         ]
     )
