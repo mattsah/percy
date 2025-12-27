@@ -98,7 +98,7 @@ begin DepGraph:
     method checkConstraint*(requirement: Requirement, commit: Commit): bool {. base .} =
         if requirement.constraint.check(commit.version):
             result = true
-        elif requirement.constraint.check(ver("0.0.0-commit." & commit.id)):
+        elif requirement.constraint.check(ver(commit.id)):
             result = true
         else:
             result = false
@@ -133,7 +133,7 @@ begin DepGraph:
                                         return v.build.startsWith(version.build) or
                                                version.build.startsWith(v.build)
 
-                                return v == ver(constraint[1..^1])
+                                return v == version
                             else:
                                 let
                                     now = ver(constraint[1..^1])

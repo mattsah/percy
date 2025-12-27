@@ -119,13 +119,13 @@ proc ver*(version: string): Version =
         lowered = version.toLower()
         cleaned = lowered.replace(re"[!@#$%^&*+_.,/]", "-")
 
-    if lowered == "head":
+    if lowered == "head": # explicit head
         return v("0.0.0-HEAD")
-    if lowered.len >= 4 and lowered.len <= 40 and lowered.match(re"^[a-f0-9]+$"):
-        return v("0.0.0-commit." & lowered)
-    if lowered.startsWith("head@"):
+    if lowered.startsWith("head@"): # explicit branch
         return v("0.0.0-branch." & cleaned[5..^1])
-    if lowered.match(re"^(v?)[0-9]+\.[0-9]+.*"):
+    if lowered.len >= 4 and lowered.len <= 40 and lowered.match(re"^[a-f0-9]+$"): # implicit commit
+        return v("0.0.0-commit." & lowered)
+    if lowered.match(re"^(v?)[0-9]+\.[0-9]+.*"): # implicit version tag
         var
             verParts = lowered.split('.')
             newVersion = verParts[0].replace(re"[^0-9]", "") & "." & verParts[1]
@@ -142,3 +142,5 @@ proc ver*(version: string): Version =
             newVersion = newVersion & ".0"
 
         return v(newVersion)
+
+    return v("0.0.0-branch." & cleaned)

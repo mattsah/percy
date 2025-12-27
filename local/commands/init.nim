@@ -15,7 +15,8 @@ begin InitCommand:
                 std/strutils
             when withDir(thisDir(), system.fileExists("vendor/percy.paths")):
                 for path in readFile("vendor/percy.paths").split("\n"):
-                    switch("path", path)
+                    if path.strip().len > 0:
+                        switch("path", path)
             # </{percy.name}>
             """
         )
