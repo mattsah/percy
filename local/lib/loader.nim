@@ -13,6 +13,10 @@ type
         settings: Settings
         map: JsonNode
 
+const
+    allYields = {pcFile, pcDir, pcLinkToDir, pcLinkToFile}
+    allFollows = {pcDir, pcLinkToDir}
+
 
 begin Loader:
     method init*(settings: Settings, quiet: bool = true): void {. base .} =
@@ -27,10 +31,15 @@ begin Loader:
         else:
             this.map = newJObject()
 
-    method writeMapFile(map: JsonNode): void {. base .} =
+    method writeMapFile(): void {. base .} =
         let
             mapFile = fmt "{percy.name}.map"
-        writeFile(mapFile, pretty(this.map))
+        if this.map.len:
+            writeFile(mapFile, pretty(this.map))
+        elif fileExists(mapFile):
+            removeFile(mapFile)
+        else:
+            discard
 
     method getMappedPaths(targetDir: string): Table[string, string] {. base .} =
         let
@@ -54,7 +63,7 @@ begin Loader:
                             mapDir = targetDir / targetMeta["maps"][localMap].getStr()
 
                         if dirExists(mapDir):
-                            for relPath in walkDirRec(mapDir, relative = true):
+                            for relPath in walkDirRec(mapDir, allYields, allFollows, true):
                                 result[relPath] = mapDir / relPath
             except:
                 discard
@@ -116,18 +125,16 @@ begin Loader:
             var
                 newSubs = newJArray()
 
-            if not all and mappedPaths.contains(relPath):
-                continue
+            if all or not mappedPaths.hasKey(relPath):
+                for sub in map["subs"]:
+                    if sub.getStr() == repository.shaHash:
+                        continue
+                    newSubs.add(sub)
 
-            for sub in map:
-                if sub.getStr() == repository.shaHash:
-                    continue
-                newSubs.add(sub)
-
-            if newSubs.len == 0:
-                toRemove.add(relPath)
-            else:
-                this.map[relPath]["subs"] = newSubs
+                if newSubs.len == 0:
+                    toRemove.add(relPath)
+                else:
+                    this.map[relPath]["subs"] = newSubs
 
         for relPath in toRemove:
             if fileExists(relPath):
@@ -306,7 +313,8 @@ begin Loader:
                         error = percy.execCmdCapture(output, @[
                             fmt "git remote get-url origin"
                         ])
-                )
+                ),
+                deleteDir
             )
 
             if error == 0:
@@ -354,5 +362,7 @@ begin Loader:
                 pathList.add(fmt "{percy.target / workDir / commit.info.srcDir}")
             else:
                 pathList.add(fmt "{percy.target / workDir}")
+
+        this.writeMapFile()
 
         writeFile(fmt "vendor/{percy.name}.paths", pathList.join("\n"))
