@@ -11,10 +11,10 @@ The goal of Percy is to actually make package management for nim that "just work
 
 ## Limitations
 
-- Only works with `git` (no `hg`) packages/repositories
-- Assumed `git` is in your path and is a fairly recent version (at least having worktree support)
-- Dependency solver is work in progress (currently doesn't actually validate a solution) and just effectively uses highest versions.
-- Nim >= 2.2.6 (May actually work on earlier versions, but it's on you to custom build)
+- Only works with `git` packages/repositories (no `hg`)
+- Assumes `git` is in your path and is a fairly recent version (at least having worktree support)
+- Nim >= 2.2.6 (May actually work on earlier versions, but it's explicitly `.nimble` required)
+- Dependency solver is work in progress.
 
 ## Skip To
 
@@ -537,7 +537,3 @@ This basically means that repositories are first sorted by the total number of "
 1. HEAD
 2. Branches and other non-semver styled tags (Alphabetically)
 3. Version numbers and corresponding build/meta info (Per the `semver` package) for all semver styled tags.
-
-## More to Come
-
-- Hooks
