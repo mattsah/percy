@@ -252,9 +252,9 @@ begin DepGraph:
         print "Graph: Completed With Usable Versions"
 
         for repository, commits in this.tracking:
-            print fmt "  {fg.cyan}{repository.url}{fg.stop}:"
+            print fmt "   {fg.cyan}{repository.url}{fg.stop}:"
             for commit in commits:
-                print fmt "    {fg.green}{commit.version}{fg.stop}"
+                print fmt "     {fg.green}{commit.version}{fg.stop}"
 
     #[
     ##

@@ -230,7 +230,9 @@ begin Loader:
 
             if not workTrees.hasKey(targetDir):
                 if dirExists(targetDir) and not force:
-                    info fmt "> Skip: '{targetDir}': non-worktree of {currentUrl} (force with -f)"
+                    info fmt "> Skipped '{targetDir}'"
+                    info fmt "> Reason: Working copy is not managed as {currentUrl} (force with -f)"
+                    info fmt "> Hint: Your project may have moved or your cache was cleared"
                     retainDirs.incl(targetDir)
                 else:
                     createDirs.incl(targetDir)
@@ -240,10 +242,13 @@ begin Loader:
                     head = workTrees[targetDir].head
 
                 if head == commit.id and not force: # We can just retain the current state if it matches
-                    info fmt "> Skip: '{targetDir}': already at the appropriate commit (force with -f)"
+                    # info fmt "> Skipped '{targetDir}'"
+                    # info fmt "> Reason: Working copy is already up to date (force with -f)"
                     retainDirs.incl(targetDir)
                 elif branch.len != 0 and not force: # Someone may be working on something
-                    info fmt "> Skip: '{targetDir}': using branch `{branch}` (force with -f)"
+                    info fmt "> Skipped '{targetDir}'"
+                    info fmt "> Reason: Explicit branch `{branch}` is in use (force with -f)"
+                    info fmt "> Hint: Use `git checkout -d` in the directory to release the branch"
                     retainDirs.incl(targetDir)
                 else:
                     updateDirs.incl(targetDir)

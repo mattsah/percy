@@ -93,7 +93,7 @@ begin InitCommand:
 
             task build, "Build the application (whatever it's called)":
                 when defined release:
-                    build(@["--opt:speed", "--linetrace:on", "--checks:on"])
+                    build(@["--opt:speed", "--checks:on"])
                 elif defined debug:
                     build(@["--debugger:native", "--stacktrace:on", "--linetrace:on", "--checks:on"])
                 else:
