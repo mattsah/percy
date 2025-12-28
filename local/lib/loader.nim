@@ -253,7 +253,7 @@ begin Loader:
                 else:
                     updateDirs.incl(targetDir)
 
-        proc scanDeletes(dir: string): void =
+        proc scanDeletes(dir: string, depth: int = 0): void =
             var
                 delCount = 0
                 subCount = 0
@@ -286,8 +286,8 @@ begin Loader:
                         deleteDirs.incl(item.path)
                         inc delCount
                 else:
-                    scanDeletes(item.path)
-            if subCount == delCount:
+                    scanDeletes(item.path, depth + 1)
+            if subCount == delCount and depth > 0:
                 deleteDirs.incl(dir)
 
         scanDeletes(getVendorDir())

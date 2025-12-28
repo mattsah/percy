@@ -110,7 +110,13 @@ begin Settings:
         discard
 
     #[
-        Save the configuration and the index.
+        Save the config
+    ]#
+    method saveConfig*(): void {. base .} =
+        writeFile(this.config, pretty(%this.data))
+
+    #[
+        Save the index.
     ]#
     method saveIndex*(): void {. base .} =
         writeFile(percy.target / "index." & this.config, pretty(%(this.index)))
@@ -119,7 +125,7 @@ begin Settings:
         Save the configuration and the index.
     ]#
     method save*(): void {. base .} =
-        writeFile(this.config, pretty(%this.data))
+        this.saveConfig()
         this.saveIndex()
 
     #[
