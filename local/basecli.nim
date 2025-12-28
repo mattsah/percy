@@ -82,7 +82,8 @@ begin BaseGraphCommand:
         try:
             graph.build(this.nimbleInfo, newest)
         except Exception as e:
-            graph.reportStack()
+            if graph.stack.len > 0:
+                graph.reportStack()
             fail fmt "Failed Updating"
             info fmt "> Error: {e.msg}"
 

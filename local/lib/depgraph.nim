@@ -327,57 +327,64 @@ begin DepGraph:
     ##
     ]#
     method addRequirement*(commit: Commit, requirement: Requirement, depth: int): void {. base .} =
-        let
-            key = (commit.repository, commit.version)
-
-        this.stack.add(requirement)
-
-        if not this.quiet:
-            print fmt "Graph: Adding Requirement"
-            print fmt "> Dependent: {commit.repository.url} @ {commit.version}"
-            print fmt "> Depends On: {requirement.repository.url} @ {requirement.versions}"
-
-        this.addRepository(requirement)
-
-        var
-            toResolve = HashSet[Commit]()
-
-        if depth == 0:
-            var
-                toRemove = HashSet[Commit]()
-
-            for commit in this.commits[requirement.repository]:
-                if not this.checkConstraint(requirement, commit):
-                    toRemove.incl(commit)
-                else:
-                    toResolve.incl(commit)
-
-            for commit in toRemove:
-                if not this.quiet:
-                    print fmt "Graph: Excluding Commit (Not Usable At Top-Level)"
-                    print fmt "> Repository: {commit.repository.url}"
-                    print fmt "> Version: {commit.version}"
-                this.commits[commit.repository].excl(commit)
+        if requirement.package.toLower() == "nim":
+            if not this.checkConstraint(requirement, Commit(version: ver(NimVersion))):
+                raise newException(
+                    ValueError,
+                    fmt "current version {NimVersion} of Nim does not meet {requirement.versions}"
+                )
         else:
-            for commit in this.commits[requirement.repository]:
-                if this.checkConstraint(requirement, commit):
-                    toResolve.incl(commit)
+            let
+                key = (commit.repository, commit.version)
 
-        this.requirements[key].add(requirement)
+            this.stack.add(requirement)
 
-        for commit in toResolve:
-            if not this.tracking.hasKey(commit.repository):
-                this.tracking[commit.repository] = initOrderedSet[Commit]()
+            if not this.quiet:
+                print fmt "Graph: Adding Requirement"
+                print fmt "> Dependent: {commit.repository.url} @ {commit.version}"
+                print fmt "> Depends On: {requirement.repository.url} @ {requirement.versions}"
 
-            if not this.tracking[commit.repository].contains(commit):
-                this.resolve(commit, depth)
+            this.addRepository(requirement)
+
+            var
+                toResolve = HashSet[Commit]()
+
+            if depth == 0:
+                var
+                    toRemove = HashSet[Commit]()
+
+                for commit in this.commits[requirement.repository]:
+                    if not this.checkConstraint(requirement, commit):
+                        toRemove.incl(commit)
+                    else:
+                        toResolve.incl(commit)
+
+                for commit in toRemove:
+                    if not this.quiet:
+                        print fmt "Graph: Excluding Commit (Not Usable At Top-Level)"
+                        print fmt "> Repository: {commit.repository.url}"
+                        print fmt "> Version: {commit.version}"
+                    this.commits[commit.repository].excl(commit)
             else:
-                if not this.quiet:
-                    print fmt "Graph: Skipping Resolution (Already Resolved)"
-                    print fmt "> Repository: {commit.repository.url}"
-                    print fmt "> Version: {commit.version}"
+                for commit in this.commits[requirement.repository]:
+                    if this.checkConstraint(requirement, commit):
+                        toResolve.incl(commit)
 
-        discard this.stack.pop()
+            this.requirements[key].add(requirement)
+
+            for commit in toResolve:
+                if not this.tracking.hasKey(commit.repository):
+                    this.tracking[commit.repository] = initOrderedSet[Commit]()
+
+                if not this.tracking[commit.repository].contains(commit):
+                    this.resolve(commit, depth)
+                else:
+                    if not this.quiet:
+                        print fmt "Graph: Skipping Resolution (Already Resolved)"
+                        print fmt "> Repository: {commit.repository.url}"
+                        print fmt "> Version: {commit.version}"
+
+            discard this.stack.pop()
 
 
     #[
