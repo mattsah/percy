@@ -331,7 +331,7 @@ begin DepGraph:
             if not this.checkConstraint(requirement, Commit(version: ver(NimVersion))):
                 raise newException(
                     ValueError,
-                    fmt "current version {NimVersion} of Nim does not meet {requirement.versions}"
+                    fmt "current Nim version '{NimVersion}' does not meet `{requirement.versions}`"
                 )
         else:
             let
