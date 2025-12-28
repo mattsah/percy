@@ -11,5 +11,5 @@ bin = @[
 requires "nim >= 2.2.6"
 requires "semver >= 1.2.0"
 requires "checksums >= 0.2.1"
-requires "https://codeberg.org/mininim/core"
-requires "https://codeberg.org/mininim/cli"
+requires "https://codeberg.org/mininim/core#head"
+requires "https://codeberg.org/mininim/cli#head"

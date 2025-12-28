@@ -29,7 +29,7 @@ The goal of Percy is to actually make package management for nim that "just work
 ### Installing Percy
 
 ```bash
-nimble install https://github.com/mattsah/percy
+nimble install https://github.com/mattsah/percy@#head
 ```
 
 ### Initializing a Project
