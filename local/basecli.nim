@@ -43,7 +43,7 @@ let
     CommandSkipOpt* = Opt(
         flag: 's',
         name: "skip-resolution",
-        description: "Skip immediate resolution (i.e. don't cacheinstall, or update anything)"
+        description: "Skip resolution (i.e. don't build out vendor, just manage config)"
     )
 
 begin BaseCommand:
