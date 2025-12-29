@@ -1,5 +1,6 @@
 *.zst
 nim.cfg
+nimble.lock
 nimble.paths
 nimble.develop
 nimbledeps
