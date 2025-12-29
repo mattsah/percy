@@ -309,17 +309,17 @@ begin Loader:
             if hasDeleteDirs or hasUpdateDirs or hasCreateDirs:
                 print fmt "> Solution: Changes Required"
                 if hasDeleteDirs:
-                    print fmt "> Delete:"
+                    print fmt ">   Delete:"
                     for dir in deleteDirs:
-                        print fmt ">    {dir}"
+                        print fmt ">     {dir}"
                 if hasUpdateDirs:
-                    print fmt ">  Update:"
+                    print fmt ">   Update:"
                     for dir in updateDirs:
-                        print fmt ">    {dir}"
+                        print fmt ">     {dir}"
                 if hasCreateDirs:
-                    print fmt ">  Create:"
+                    print fmt ">   Create:"
                     for dir in createDirs:
-                        print fmt ">    {dir}"
+                        print fmt ">     {dir}"
             else:
                 print fmt "> Solution: There Are No Applicable Changes"
 
