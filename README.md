@@ -389,7 +389,7 @@ It is then possible to define in a nimble file:
 requires "mininim/core"
 ```
 
-In fact, package names with Percy can pretty much contain any character except those required by version constraints, e.g `=`, `<`, `>`, `~`, `^` and `#`.
+In fact, package names with Percy can pretty much contain any character except those required by version constraints, e.g `=`, `<`, `>`, `~`, `^`, `#` and `@`.
 
 In the event you **use a slash**, you will additionally notice that your packages will appear in your `vendor` directory as a sub-directory structure.  Indeed, it should be further noted that **if you have non-named URL-based requirements those will be installed to vendor based on the "path" component of their URL**, thereby avoiding potential conflicts.
 
