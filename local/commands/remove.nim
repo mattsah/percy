@@ -10,9 +10,10 @@ begin RemoveCommand:
         result = super.execute(console)
 
         let
-            graph = this.getGraph()
+            skip = parseBool(console.getOpt("skip-resolution"))
             package = console.getArg("package")
             repository = this.settings.getRepository(package)
+            graph = this.getGraph()
         var
             isRemoved = false
             newContent: string
@@ -91,7 +92,8 @@ begin RemoveCommand:
 
         newContent = parser.render(this.nimbleMap, this.nimbleInfo)
 
-        result = this.resolve()
+        if not skip:
+            result = this.resolve()
 
         if result == 0:
             writeFile(this.nimbleFile, newContent)
@@ -112,6 +114,7 @@ shape RemoveCommand: @[
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
+            CommandSkipOpt,
         ]
     )
 ]

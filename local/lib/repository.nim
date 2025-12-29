@@ -176,6 +176,10 @@ begin Repository:
         var
             error: int
             output: string
+
+        when defined debug:
+            print fmt "Getting updates available in {this.url}"
+
         error = this.exec(
             @[
                 fmt "git fetch origin -f --prune",
@@ -224,11 +228,7 @@ begin Repository:
             if not this.cacheExists:
                 discard this.clone()
                 result = RUpdateCloned
-
-            when defined debug:
-                print fmt "Getting updates available in {this.url}"
-
-            if not this.fetch():
+            elif not this.fetch():
                 result = RUpdateNone
             else:
                 result = RUpdated

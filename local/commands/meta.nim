@@ -60,11 +60,11 @@ begin MetaCommand:
 
                         if current.kind == JObject:
                             current.delete(setKey)
-                            this.settings.saveConfig()
                         else:
                             info fmt "Unsetting has no effect"
                             info fmt "> Path: {path}"
                             info fmt "> Reason: `{prePath}` is not an object"
+                            return 1
                 else:
                     try:
                         current = this.settings.data.meta.get(path)
@@ -76,12 +76,13 @@ begin MetaCommand:
                             )
                         else:
                             this.settings.data.meta.set(path, jsonVal)
-                            this.settings.saveConfig()
                     except Exception as e:
                         fail fmt "Cannot set value"
                         info fmt "> Path: {path}"
                         info fmt "> Reason: {e.msg}"
-                        return 1
+                        return 2
+
+                this.settings.saveConfig()
 
 shape MetaCommand: @[
     Command(

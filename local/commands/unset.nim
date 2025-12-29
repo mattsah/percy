@@ -10,6 +10,7 @@ begin UnsetCommand:
         result = super.execute(console)
 
         let
+            skip = parseBool(console.getOpt("skip-resolution"))
             unsetType = console.getArg("type")
             unsetAlias = console.getArg("alias")
         var
@@ -36,9 +37,10 @@ begin UnsetCommand:
                 repository = this.settings.data.packages[unsetAlias].repository
                 this.settings.data.packages.del(unsetAlias)
 
-        this.settings.prepare(true)
+        this.settings.prepare(true, skip)
 
-        result = this.resolve()
+        if not skip:
+            result = this.resolve()
 
         if result == 0:
             this.settings.save()
@@ -64,6 +66,7 @@ shape UnsetCommand: @[
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
+            CommandSkipOpt,
         ],
         args: @[
             Arg(

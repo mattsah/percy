@@ -13,6 +13,7 @@ begin SetCommand:
         result = super.execute(console)
 
         let
+            skip = parseBool(console.getOpt("skip-resolution"))
             setUrl = console.getArg("url")
             setType = console.getArg("type")
             repository = Repository.init(setUrl)
@@ -55,9 +56,10 @@ begin SetCommand:
             info fmt ">  Error: {getCurrentExceptionMsg()}"
             return 2
 
-        this.settings.prepare(true)
+        this.settings.prepare(true, skip)
 
-        result = this.resolve()
+        if not skip:
+            result = this.resolve()
 
         if result == 0:
             this.settings.save()
@@ -83,6 +85,7 @@ shape SetCommand: @[
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
+            CommandSkipOpt,
         ],
         args: @[
             Arg(

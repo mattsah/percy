@@ -119,6 +119,9 @@ begin Settings:
         Save the index.
     ]#
     method saveIndex*(): void {. base .} =
+        if not dirExists(percy.target):
+            createDir(percy.target)
+
         writeFile(percy.target / "index." & this.config, pretty(%(this.index)))
 
     #[
@@ -126,7 +129,8 @@ begin Settings:
     ]#
     method save*(): void {. base .} =
         this.saveConfig()
-        this.saveIndex()
+        if dirExists(percy.target):
+            this.saveIndex()
 
     #[
         Takes all the active sources and packages on this object and constructs an index then
@@ -136,9 +140,6 @@ begin Settings:
         var
             aliases = initOrderedTable[string, string]()
             resolved: OrderedTable[string, string]
-
-        if not dirExists(percy.target):
-            createDir(percy.target)
 
         for name, source in this.data.sources:
             let
@@ -190,7 +191,7 @@ begin Settings:
     #[
 
     ]#
-    method prepare*(force: bool = false): void {. base .} =
+    method prepare*(force: bool = false, noSave: bool = false): void {. base .} =
         let
             index = percy.target / "index." & this.config
             cacheDir = percy.getAppCacheDir()
@@ -237,10 +238,11 @@ begin Settings:
 
         if refresh or updated:
             this.index()
-            this.saveIndex()
-
-        if fileExists(index):
-            this.index = parseJson(readFile(index)).to(OrderedTable[string, string])
+            if not noSave:
+                this.saveIndex()
+        else:
+            if fileExists(index):
+                this.index = parseJson(readFile(index)).to(OrderedTable[string, string])
 
     #[
         Validates a JSON configuration and builds the internal settings data from that
@@ -301,7 +303,7 @@ begin Settings:
             as well as our vendor dir and, if we did have source/package data, will clone and
             update those repositories if necessary.
         ]#
-        this.prepare()
+        this.prepare(false, true)
 
 
     #[

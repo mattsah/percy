@@ -10,10 +10,11 @@ begin RequireCommand:
         result = super.execute(console)
 
         let
-            graph = this.getGraph()
+            skip = parseBool(console.getOpt("skip-resolution"))
             package = console.getArg("package")
             versions = console.getArg("versions")
             requireCount = this.nimbleInfo.requires.len
+            graph = this.getGraph()
         var
             hasAddition = true
             newContent: string
@@ -56,7 +57,8 @@ begin RequireCommand:
 
         newContent = parser.render(this.nimbleMap, this.nimbleInfo)
 
-        result = this.resolve()
+        if not skip:
+            result = this.resolve()
 
         if result == 0:
             writeFile(this.nimbleFile, newContent)
@@ -82,6 +84,7 @@ shape RequireCommand: @[
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
+            CommandSkipOpt,
         ]
     )
 ]

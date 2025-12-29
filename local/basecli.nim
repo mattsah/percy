@@ -40,6 +40,12 @@ let
         description: "The verbosity level of the output"
     )
 
+    CommandSkipOpt* = Opt(
+        flag: 's',
+        name: "skip-resolution",
+        description: "Skip immediate resolution (i.e. don't cacheinstall, or update anything)"
+    )
+
 begin BaseCommand:
     method execute*(console: Console): int {. base .} =
         result = 0
@@ -50,19 +56,12 @@ begin BaseCommand:
 
 begin BaseGraphCommand:
     method execute*(console: Console): int =
-        var
-            foundNimble = false
-
         result = super.execute(console)
 
         for file in walkFiles("*.nimble"):
             this.nimbleFile = file
             this.nimbleInfo = parser.parse(readFile(file), this.nimbleMap)
-            foundNimble = true
             break
-
-        if not foundNimble:
-            raise newException(ValueError, "Could not find .nimble file")
 
     method getGraph*(): DepGraph {. base .} =
         result = DepGraph.init(this.settings, this.verbosity == 0)

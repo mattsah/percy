@@ -116,6 +116,7 @@ begin InitCommand:
             output: string
             error: int
         let
+            skip = parseBool(console.getOpt("skip-resolution"))
             reset = parseBool(console.getOpt("reset"))
             without = parseBool(console.getOpt("without-tasks"))
             target = console.getArg("target")
@@ -156,47 +157,48 @@ begin InitCommand:
                 this.settings.getRepository("gh://nim-lang/packages")
             )
 
-        if fileExists("config.nims"):
-            configIn = readFile("config.nims").split('\n')
+        if not skip:
+            if fileExists("config.nims"):
+                configIn = readFile("config.nims").split('\n')
 
-        for line in configIn:
-            if line.strip().startsWith("task build,"):
-                hasBuild = nowrite == 0
-            if line.strip().startsWith("task test,"):
-                hasTests = nowrite == 0
+            for line in configIn:
+                if line.strip().startsWith("task build,"):
+                    hasBuild = nowrite == 0
+                if line.strip().startsWith("task test,"):
+                    hasTests = nowrite == 0
 
-            if inBlock and line.len > 0 and line[0] != ' ':
-                inBlock = false
-                dec nowrite
-            if not inBlock and line == fmt "# <{percy.name}>":
-                inc nowrite
-                continue
-            if not inBlock and line == fmt "# </{percy.name}>":
-                dec nowrite
-                continue
-            if nowrite:
-                continue
+                if inBlock and line.len > 0 and line[0] != ' ':
+                    inBlock = false
+                    dec nowrite
+                if not inBlock and line == fmt "# <{percy.name}>":
+                    inc nowrite
+                    continue
+                if not inBlock and line == fmt "# </{percy.name}>":
+                    dec nowrite
+                    continue
+                if nowrite:
+                    continue
 
-            configOut.add(line)
+                configOut.add(line)
 
-        var
-            config = ""
+            var
+                config = ""
 
-        config = configOut.join("\n").strip()
-        config = config & "\n\n" & this.getPaths().strip()
+            config = configOut.join("\n").strip()
+            config = config & "\n\n" & this.getPaths().strip()
 
-        if not hasBuild and not without:
-            config = config & "\n\n" & this.buildTask.strip()
+            if not hasBuild and not without:
+                config = config & "\n\n" & this.buildTask.strip()
 
-        if not hasTests and not without:
-            config = config & "\n\n" & this.testTask.strip()
+            if not hasTests and not without:
+                config = config & "\n\n" & this.testTask.strip()
 
-        writeFile("config.nims", config)
+            writeFile("config.nims", config)
 
-        this.settings.prepare(true)
+        this.settings.prepare(true, skip)
         this.settings.save()
 
-        if repo != ".":
+        if not skip and repo != ".":
             let
                 subConsole = this.app.get(Console, false)
             var
@@ -226,10 +228,11 @@ shape InitCommand: @[
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
+            CommandSkipOpt,
             Opt(
                 flag: 'r',
                 name: "reset",
-                description: "Reset the sources to standard nim"
+                description: "Reset the configuration to defaults (standard nim sources, no meta)"
             ),
             Opt(
                 flag: 'w',
