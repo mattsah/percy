@@ -123,8 +123,3 @@ begin BaseGraphCommand:
                 lock.add(commit.toLockFile())
 
             writeFile("percy.lock", pretty(lock))
-
-
-
-
-

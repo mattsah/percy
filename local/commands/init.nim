@@ -120,11 +120,11 @@ begin InitCommand:
             reset = parseBool(console.getOpt("reset"))
             without = parseBool(console.getOpt("without-tasks"))
             target = console.getArg("target")
-            repo = console.getArg("repo")
+            url = console.getArg("url")
 
-        if repo != ".":
+        if url != ".":
             let
-                repository = Repository.init(repo)
+                repository = Repository.init(url)
 
             if target == ".":
                 directory = repository.url[repository.url.rfind('/')+1..^1]
@@ -198,7 +198,7 @@ begin InitCommand:
         this.settings.prepare(true, skip)
         this.settings.save()
 
-        if not skip and repo != ".":
+        if not skip and url != ".":
             let
                 subConsole = this.app.get(Console, false)
             var
@@ -215,9 +215,9 @@ shape InitCommand: @[
         description: "Initialize as a percy package",
         args: @[
             Arg(
-                name: "repo",
+                name: "url",
                 default: ".",
-                description: "A repository to clone, if empty current directory is intialized"
+                description: "A valid git URL to clone, if empty current directory is intialized"
             ),
             Arg(
                 name: "target",

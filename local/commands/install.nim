@@ -32,7 +32,7 @@ begin InstallCommand:
             let
                 subConsole = this.app.get(Console, false)
             var
-                command = @["update", "-np"]
+                command = @["update", "-n", "-p"]
 
             if this.verbosity:
                 command.add("-v:" & $this.verbosity)
