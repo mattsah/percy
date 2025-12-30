@@ -208,7 +208,7 @@ begin FetchCommand:
 shape FetchCommand: @[
     Command(
         name: "fetch",
-        description: "Update package(s) and write the lock file",
+        description: "Download, install, and build applications",
         args: @[
             Arg(
                 name: "url",
