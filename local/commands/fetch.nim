@@ -77,11 +77,10 @@ begin FetchCommand:
     #[
     ##
     ]#
-    method buildWorkTree(): seq[string] {. base .} =
+    method buildWorkTree(): HashSet[string] {. base .} =
         var
             error: int
             output: string
-            binFiles: HashSet[string]
             existingFiles: HashSet[string]
             targetConfig: JsonNode
             nimbleInfo: NimbleFileInfo
@@ -95,12 +94,12 @@ begin FetchCommand:
             if buildNode.kind == JString:
                 buildCmd = buildNode.getStr()
 
-        for file in walkDir("."):
+        for file in walkDir(getCurrentDir()):
             if file.path.endsWith(".nimble"):
                 nimbleInfo = parser.parse(readFile(file.path))
                 break
 
-        for file in walkDir(nimbleInfo.binDir):
+        for file in walkDir(getCurrentDIr() / nimbleInfo.binDir):
             if fileExists(file.path):
                 existingFiles.incl(file.path)
 
@@ -115,9 +114,9 @@ begin FetchCommand:
                 fmt "failed executing `{buildCmd}` with error ({error})"
             )
 
-        for file in walkDir(nimbleInfo.binDir):
+        for file in walkDir(getCurrentDIr() / nimbleInfo.binDir):
             if fileExists(file.path) and not existingFiles.contains(file.path):
-                binFiles.incl(file.path)
+                result.incl(file.path)
 
     #[
     ##
