@@ -75,15 +75,16 @@ begin BaseGraphCommand:
             loader = this.getLoader()
             solver = Solver.init()
         var
-            results: SolverResult
+            results: SolverResults
             checkouts: seq[Checkout]
+            lockFile = LockFile.init(fmt "{percy.name}.lock")
 
         try:
             graph.build(this.nimbleInfo, newest)
         except Exception as e:
             if graph.stack.len > 0:
                 graph.reportStack()
-            fail fmt "Failed Updating"
+            fail fmt "Failed updating"
             info fmt "> Error: {e.msg}"
 
             with e of MissingRepositoryException:
@@ -110,16 +111,10 @@ begin BaseGraphCommand:
 
         results = solver.solve(graph)
 
-        if isNone(results.solution):
+        if results.isEmpty:
             fail fmt "There Is No Available Solution"
             return 1
         else:
             checkouts = loader.loadSolution(results.solution.get(), preserve, force)
 
-            var
-                lock = newJArray()
-
-            for commit in results.solution.get():
-                lock.add(commit.toLockFile())
-
-            writeFile("percy.lock", pretty(lock))
+            lockFile.save(results)

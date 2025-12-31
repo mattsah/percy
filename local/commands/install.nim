@@ -11,23 +11,19 @@ begin InstallCommand:
         result = super.execute(console)
 
         let
-            loader = this.getLoader()
             force = parseBool(console.getOpt("force"))
+            loader = this.getLoader()
+        var
+            lockFile: LockFile
 
-        if fileExists("percy.lock"):
-            var
-                solution: Solution
-                checkouts: seq[Checkout]
+        try:
+            lockFile = LockFile.init("percy.lock")
+        except Exception as e:
+            fail fmt "Unable to install from lockfile"
+            info fmt "> Error: {e.msg}"
 
-            for node in parseJson(readFile("percy.lock")):
-                let
-                    commit = Commit.fromLockFile(node)
-                if not commit.repository.cacheExists:
-                    discard commit.repository.clone()
-                solution.add(commit)
-
-            checkouts = loader.loadSolution(solution, force)
-
+        if lockFile.exists:
+            discard loader.loadSolution(lockFile.solution, force)
         else:
             let
                 subConsole = this.app.get(Console, false)

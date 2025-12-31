@@ -6,6 +6,9 @@ type
     InitCommand = ref object of BaseCommand
 
 begin InitCommand:
+    #[
+        Get the path inclusion content
+    ]#
     method getPaths(): string {. base .} =
         result = dedent(
             fmt """
@@ -21,6 +24,9 @@ begin InitCommand:
             """
         )
 
+    #[
+        Get the test task content
+    ]#
     method testTask(): string {. base .} =
         result = dedent(
             fmt """
@@ -36,6 +42,9 @@ begin InitCommand:
             """
         )
 
+    #[
+        Get the build task content
+    ]#
     method buildTask(): string {. base .} =
         let
             cfg = "\"\"\"{\"bin\": \"\", \"srcDir\": \"\", \"binDir\": \"\"}\"\"\""
@@ -102,19 +111,93 @@ begin InitCommand:
             """
         )
 
-    method execute(console: Console): int =
-        result = super.execute(console)
-
+    #[
+        Create a working copy of the given repository URL and get the path
+    ]#
+    method createWorkCopy(url: string, target: string): string {. base .} =
+        let
+            repository = Repository.init(url)
         var
+            output: string
+            error: int
+
+        if target == "<repository name>":
+            result = absolutePath(repository.url[repository.url.rfind('/')+1..^1])
+        else:
+            result = absolutePath(target)
+
+        if dirExists(result) or fileExists(result):
+            raise newException(
+                ValueError,
+                fmt "'{result}' already exists"
+            )
+
+        error = percy.execCmdCaptureAll(output, @[
+            fmt "git clone {repository.url} {result}"
+        ])
+
+        if error:
+            if this.verbosity > 0:
+                print output
+
+            raise newException(
+                ValueError,
+                fmt "cloning '{url}' failed"
+            )
+
+    #[
+        Update the config.nims file in the current directory
+    ]#
+    method updateConfig(withoutTasks: bool = false): void {. base .} =
+        var
+            config = ""
             nowrite = 0
             inBlock = false
             hasTests = false
             hasBuild = false
             configIn: seq[string]
             configOut: seq[string]
-            directory: string
-            output: string
-            error: int
+
+        if fileExists("config.nims"):
+            configIn = readFile("config.nims").split('\n')
+
+        for line in configIn:
+            if line.strip().startsWith("task build,"):
+                hasBuild = nowrite == 0
+            if line.strip().startsWith("task test,"):
+                hasTests = nowrite == 0
+
+            if inBlock and line.len > 0 and line[0] != ' ':
+                inBlock = false
+                dec nowrite
+            if not inBlock and line == fmt "# <{percy.name}>":
+                inc nowrite
+                continue
+            if not inBlock and line == fmt "# </{percy.name}>":
+                dec nowrite
+                continue
+            if nowrite:
+                continue
+
+            configOut.add(line)
+
+        config = configOut.join("\n").strip()
+        config = config & "\n\n" & this.getPaths().strip()
+
+        if not withoutTasks:
+            if not hasBuild:
+                config = config & "\n\n" & this.buildTask.strip()
+            if not hasTests:
+                config = config & "\n\n" & this.testTask.strip()
+
+        writeFile("config.nims", config)
+
+    #[
+        Execute the command
+    ]#
+    method execute(console: Console): int =
+        result = super.execute(console)
+
         let
             skip = parseBool(console.getOpt("skip-resolution"))
             reset = parseBool(console.getOpt("reset"))
@@ -122,31 +205,14 @@ begin InitCommand:
             target = console.getArg("target")
             url = console.getArg("url")
 
-        if url != ".":
-            let
-                repository = Repository.init(url)
-
-            if target == ".":
-                directory = repository.url[repository.url.rfind('/')+1..^1]
-            else:
-                directory = target
-
-            if dirExists(directory) or fileExists(directory):
-                fail fmt "Cannot initialize repository in {directory}, already exists"
+        if url != "<none>":
+            try:
+                setCurrentDir(this.createWorkCopy(url, target))
+                this.settings = Settings.open(this.config)
+            except Exception as e:
+                fail fmt "Cannot initialize external package"
+                info fmt "> Error: {e.msg}"
                 return 1
-
-            error = percy.execCmdCaptureAll(output, @[
-                fmt "git clone {repository.url} {directory}"
-            ])
-
-            if error:
-                fail fmt "Cannot initialize repository in {directory}, clone failed"
-                info indent(output, 2)
-                return 2
-
-            setCurrentDir(directory)
-
-            this.settings = Settings.open(this.config)
 
         if not fileExists(this.settings.config) or reset:
             this.settings.data.sources.clear()
@@ -157,72 +223,39 @@ begin InitCommand:
                 this.settings.getRepository("gh://nim-lang/packages")
             )
 
-        if not skip:
-            if fileExists("config.nims"):
-                configIn = readFile("config.nims").split('\n')
+        if skip:
+            this.settings.prepare(true, true)
+            this.settings.save()
+        else:
+            this.updateConfig(without)
+            this.settings.prepare(true, false)
+            this.settings.save()
 
-            for line in configIn:
-                if line.strip().startsWith("task build,"):
-                    hasBuild = nowrite == 0
-                if line.strip().startsWith("task test,"):
-                    hasTests = nowrite == 0
+            if url != "<none>":
+                let
+                    subConsole = this.app.get(Console, false)
+                var
+                    command = @["install"]
 
-                if inBlock and line.len > 0 and line[0] != ' ':
-                    inBlock = false
-                    dec nowrite
-                if not inBlock and line == fmt "# <{percy.name}>":
-                    inc nowrite
-                    continue
-                if not inBlock and line == fmt "# </{percy.name}>":
-                    dec nowrite
-                    continue
-                if nowrite:
-                    continue
+                if this.verbosity:
+                    command.add("-v:" & $this.verbosity)
 
-                configOut.add(line)
-
-            var
-                config = ""
-
-            config = configOut.join("\n").strip()
-            config = config & "\n\n" & this.getPaths().strip()
-
-            if not hasBuild and not without:
-                config = config & "\n\n" & this.buildTask.strip()
-
-            if not hasTests and not without:
-                config = config & "\n\n" & this.testTask.strip()
-
-            writeFile("config.nims", config)
-
-        this.settings.prepare(true, skip)
-        this.settings.save()
-
-        if not skip and url != ".":
-            let
-                subConsole = this.app.get(Console, false)
-            var
-                command = @["install"]
-
-            if this.verbosity:
-                command.add("-v:" & $this.verbosity)
-
-            result = subConsole.run(command)
+                result = subConsole.run(command)
 
 shape InitCommand: @[
     Command(
         name: "init",
-        description: "Initialize as a percy package",
+        description: "Initialize a project or package",
         args: @[
             Arg(
                 name: "url",
-                default: ".",
-                description: "A valid git URL to clone, if empty current directory is intialized"
+                default: "<none>",
+                description: "Initialize an external package or project via a valid Git repository"
             ),
             Arg(
                 name: "target",
-                default: ".",
-                description: "The directory to clone to, if empty named after repository"
+                default: "<repository name>",
+                description: "The local directory for an externally initialized package or project"
             )
         ],
         opts: @[

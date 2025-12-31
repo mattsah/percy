@@ -23,7 +23,7 @@ type
 ##
 
 #[
-
+    Get the current directory relative vendor dir or a subdirectory of it
 ]#
 proc getVendorDir*(subdir: string = ""): string =
     result = getCurrentDir() / percy.target / subdir
@@ -50,15 +50,15 @@ proc execCmd*(parts: seq[string]): int =
     result = execCmd(parts.join(" "))
 
 #[
-    Execute multiple sequences as commands.
+    Execute a command capture its output, excluding STDERR
 ]#
-proc execCmds*(commands: varargs[seq[string]]): int =
-    for command in commands:
-        let
-            error = execCmd(command)
-        if error:
-            return error
-    return 0
+proc execCmdCapture*(output: var string, parts: seq[string]): int =
+    when defined windows:
+        (output, result) = execCmdEx(parts.join(" ") & " 2>NUL")
+    else:
+        (output, result) = execCmdEx(parts.join(" ") & " 2>/dev/null")
+
+    output = output.strip()
 
 #[
     Execute a command capture its output, including STDERR
@@ -72,44 +72,24 @@ proc execCmdCaptureAll*(output: var string, parts: seq[string]): int =
     output = output.strip()
 
 #[
-    Execute a command capture its output, excluding STDERR
-]#
-proc execCmdCapture*(output: var string, parts: seq[string]): int =
-    when defined windows:
-        (output, result) = execCmdEx(parts.join(" ") & " 2>NUL")
-    else:
-        (output, result) = execCmdEx(parts.join(" ") & " 2>/dev/null")
-
-    output = output.strip()
-
-#[
     Execute the contents of the callback within a new directory, by default Percy's, then
-    change exit the directory back to the original.
+    change the directory back to the original before return.
 ]#
 proc execIn*(callback: ExecHook, dir: string = percy.getAppLocalDir()): void =
     let
         originalDir = getCurrentDir()
-    if dir != "":
+
+    if dir != originalDir:
         when defined debug:
             print fmt "Entering directory '{dir}'"
         setCurrentDir(dir)
-    try:
-        callback()
-    finally:
+
+    callback()
+
+    if dir != originalDir:
         when defined debug:
             print fmt "Leaving directory '{dir}'"
         setCurrentDir(originalDir)
-
-#[
-    Determine whether or not a directory contains any file (not just other directories)
-]#
-proc hasFile*(path: string): bool =
-    if dirExists(path):
-        for item in walkDir(path):
-            if fileExists(item.path):
-                return true
-    else:
-        raise newException(ValueError, fmt "{path} is not a directory")
 
 #[
     Version overload with fixups to solve for bad semver

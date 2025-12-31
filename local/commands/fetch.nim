@@ -9,24 +9,6 @@ begin FetchCommand:
     #[
     ##
     ]#
-    method initializeRepository(url: string, newest: bool = false): Repository {. base .} =
-        result = Repository.init(url)
-
-        if not result.exists:
-            raise newException(
-                ValueError,
-                "cannot find a valid git repository at {url}"
-            )
-
-        if newest:
-            discard result.update()
-        else:
-            if not result.cacheExists:
-                discard result.clone()
-
-    #[
-    ##
-    ]#
     method resolveCommit(repository: Repository, version: Version): Commit {. base .} =
         var
             candidate: Option[Commit]
@@ -147,21 +129,23 @@ begin FetchCommand:
         setCurrentDir(buildDir)
 
         try:
-            repository = this.initializeRepository(url, newest)
+            repository = Repository.init(url)
+
+            if newest:
+                discard repository.update(force = true)
+            else:
+                discard repository.update(force = false)
+
+            discard repository.prune()
+
         except Exception as e:
             fail fmt "Could Not Fetch From Repository"
             info fmt "> Error: {e.msg}"
             return 1
 
-        error = repository.exec(
-            @[
-                fmt "git worktree prune",
-            ],
-            output
-        )
-
         try:
             commit = this.resolveCommit(repository, ver(version))
+
         except Exception as e:
             fail fmt "Could Not Fetch Requested Version"
             info fmt "> Error: {e.msg}"

@@ -132,34 +132,29 @@ begin Repository:
     method cacheExists*(): bool {. base .} =
         result = dirExists(this.cacheDir)
 
+    #[
+        Determine whether or not a repository exists by trying to list the remote
+    ]#
     method exists*(): bool {. base .} =
         var
             error: int
-            output: string
-
-        result = false
 
         if this.cacheExists:
             result = true
         else:
-            try:
-                if this.stale:
-                    error = percy.execCmdCapture(output, @[
-                        fmt "git ls-remote '{this.url}' 'null'"
-                    ])
+            error = percy.execCmd(@[
+                fmt "git ls-remote '{this.url}' 'null'"
+            ])
 
-                    if error == 0:
-                        result = true
-            except:
-                discard
+            result = error == 0
 
+    #[
+        Execute commands within the context of a repository
+    ]#
     method exec*(cmdParts: seq[string], output: var string): int {. base .} =
         var
             error: int
             safeOutput: string
-
-        if not this.cacheExists:
-            raise newException(ValueError, fmt "cannot exec commands in {this.url}, no local cache")
 
         percy.execIn(
             ExecHook as (
@@ -172,13 +167,18 @@ begin Repository:
         result = error
         output = safeOutput
 
-    method fetch*(): bool {. base .} =
+    #[
+        Fetch the latest commits
+    ]#
+    method fetch*(quiet: bool = true): bool {. base .} =
         var
             error: int
             output: string
 
-        when defined debug:
-            print fmt "Getting updates available in {this.url}"
+        if not quiet:
+            print fmt "Repository: Getting Updates"
+            print fmt "> URL: {this.url}"
+            print fmt "> Hash: {this.shaHash}"
 
         error = this.exec(
             @[
@@ -199,77 +199,127 @@ begin Repository:
                 fmt "failed fetching from {this.url} ({this.shaHash}): {output}"
             )
 
+        setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
+
+        this.stale = false
         result = output.len > 0
 
-    method clone*(): RCloneStatus {. base .} =
+    #[
+        Clone the repository into the local cache
+    ]#
+    method clone*(quiet: bool = true): RCloneStatus {. base .} =
         var
             error: int
+            output: string
 
         if this.cacheExists:
-            result = RCloneExists
-        else:
-            print fmt "Downloading {this.url} into central caching"
+            return RCloneExists
 
-            error = percy.execCmd(@[
-                fmt "git clone --bare {this.url} {this.cacheDir}"
-            ])
+        if not this.exists:
+            raise newException(
+                ValueError,
+                fmt "cannot clone {this.url} ({this.shaHash}), unable to connect to repository"
+            )
 
-            if not error:
-                result = RCloneCreated
-            else:
-                raise newException(ValueError, fmt "failed cloning {this.url}")
+        if not quiet:
+            print fmt "Repository: Cloning"
+            print fmt "> URL: {this.url}"
+            print fmt "> Hash: {this.shaHash}"
 
-            discard this.fetch()
+        error = percy.execCmdCaptureAll(output, @[
+            fmt "git clone --bare {this.url} {this.cacheDir}"
+        ])
 
-    method update*(force: bool = false): RUpdateStatus {. base .} =
+        if error:
+            raise newException(
+                ValueError,
+                fmt "failed cloning {this.url}"
+            )
+
+        discard this.fetch()
+
+        result = RCloneCreated
+
+    #[
+        Update the repository, taking into account existence, staleness, etc.
+    ]#
+    method update*(quiet: bool = true, force: bool = false): RUpdateStatus {. base .} =
         result = RUpdateSkip
 
+        if not this.cacheExists:
+            discard this.clone(quiet = quiet)
+            return RUpdateCloned
+
         if force or this.stale:
-            if not this.cacheExists:
-                discard this.clone()
-                result = RUpdateCloned
-            elif not this.fetch():
-                result = RUpdateNone
-            else:
+            if this.fetch(quiet = quiet):
                 result = RUpdated
+            else:
+                result = RUpdateNone
 
-            setLastModificationTime(this.cacheDir / "FETCH_HEAD", getTime())
-            this.stale = false
-
-    method head*(): string {. base .} =
-        for line in readFile(this.cacheDir / "FETCH_HEAD").split("\n"):
-            let
-                matchUrl = this.url.strip(leading = false, chars = {'/'}).toLower()
-            if line.toLower().split("\t\t")[1].startsWith(matchUrl):
-                result = line[0..39]
-                break
-        if not result:
-            raise newException(ValueError, fmt "could not determine head on {this.url}")
-
-    method worktrees*(): Table[string, WorkTree] {. base .} =
+    #[
+        Prune the repository worktrees
+    ]#
+    method prune*(): bool {. base .} =
         var
             error: int
-            worktrees: string
+            output: string
 
         error = this.exec(
             @[
-                fmt "git worktree prune"
+                fmt "git worktree prune -v"
             ],
-            worktrees
+            output
         )
-        if error != 0: # optimized
-            raise newException(ValueError, "Could not prune worktree list")
+
+        if error != 0:
+            raise newException(
+                ValueError,
+                fmt "failed pruning {this.url} ({this.shaHash}): {output}"
+            )
+
+        result = output.len > 0
+
+    #[
+        Get the HEAD commit id
+    ]#
+    method head*(): string {. base .} =
+        if fileExists(this.cacheDir / "FETCH_HEAD"):
+            for line in readFile(this.cacheDir / "FETCH_HEAD").split("\n"):
+                let
+                    matchUrl = this.url.strip(leading = false, chars = {'/'}).toLower()
+                if line.toLower().split("\t\t")[1].startsWith(matchUrl):
+                    result = line[0..39]
+                    break
+        if not result:
+            raise newException(
+                ValueError,
+                fmt "could not determine head on {this.url} ({this.shaHash})"
+            )
+
+    #[
+        Get a list of all worktrees, indexed by their path
+    ]#
+    method worktrees*(): Table[string, WorkTree] {. base .} =
+        var
+            error: int
+            output: string
+
+        discard this.prune()
 
         error = this.exec(
             @[
                 fmt "git worktree list --porcelain"
             ],
-            worktrees
+            output
         )
-        if error != 0: # optimized
-            raise newException(ValueError, "Could not get worktree list")
 
-        for worktree in worktrees.strip().split("\n\n"):
+        if error != 0:
+            raise newException(
+                ValueError,
+                fmt "could not list worktreess on {this.url} ({this.shaHash}): {output}"
+            )
+
+        for worktree in output.strip().split("\n\n"):
             let
                 lines = worktree.split('\n')
             var
@@ -328,8 +378,6 @@ begin Repository:
             output: string
             head: string
 
-        discard this.update(newest)
-
         error = this.exec(
             @[
                 fmt "git for-each-ref --omit-empty --format='{tag} {hash}'",
@@ -339,7 +387,10 @@ begin Repository:
         )
 
         if error != 0:
-            raise newException(ValueError, fmt "failed aggregating commits on {this.url}")
+            raise newException(
+                ValueError,
+                fmt "failed aggregating commits on {this.url} ({this.shaHash})"
+            )
 
         output = fmt "HEAD {this.head}\n{output}"
 
@@ -361,66 +412,58 @@ begin Repository:
                         version: version
                     ))
 
-                except:
+                except Exception as e:
                     raise newException(
                         ValueError,
-                        fmt "Failed loading reference '{reference}': {getCurrentExceptionMsg()}"
+                        fmt "failed loading '{reference}' on {this.url} ({this.shaHash}): {e.msg}"
                     )
 
+    #[
+        Make a reference path for ls-tree or show
+    ]#
+    method makePath*(path: string, reference: string = ""): string {. base .} =
+        if reference == "":
+            result = this.head & ":" & path
+        else:
+            result = reference & ":" & path
+
+    #[
+        List a directory at a given reference
+    ]#
     method listDir*(path: string, reference: string = ""): seq[string] {. base .} =
+        let
+            directory = this.makePath(path.strip(chars = {'/'}), reference)
         var
             error: int
             output: string
-            commit: string
+        when debugging(2):
+            print fmt "Listing directory {directory} on {this.url} ({this.shaHash})"
 
-        if not reference:
-            commit = this.head
-        else:
-            commit = reference
+        error = this.exec(@[fmt "git ls-tree --name-only {directory}"], output)
 
-        error = this.exec(
-            @[
-                fmt "git ls-tree --name-only {commit} --name-only :{path}"
-            ],
-            output
-        )
-
-        if error:
+        if error != 0:
             raise newException(
                 ValueError,
-                fmt "failed to list directory {commit}:{path} on {this.url}"
+                fmt "could not list directory {directory} on {this.url} ({this.shaHash})"
             )
 
         result = output.strip().split('\n')
 
+    #[
+        Read a file at a given reference
+    ]#
     method readFile*(path: string, reference: string = ""): string {. base .} =
+        let
+            file = this.makePath(path, reference)
         var
             error: int
-            output: string
-            commit: string
-
-        if not reference:
-            commit = this.head
-        else:
-            commit = reference
-
-        let
-            file = commit & ":" & path.strip("/")
-
         when debugging(2):
-            print fmt "Reading file {file} @ {this.url}"
+            print fmt "Reading file {file} on {this.url} ({this.shaHash})"
 
-        error = this.exec(
-            @[
-                fmt "git show {file}"
-            ],
-            output
-        )
+        error = this.exec(@[fmt "git show {file}"], result)
 
-        if error:
+        if error != 0:
             raise newException(
                 ValueError,
-                fmt "failed to read file {commit}:{path} on {this.url}"
+                fmt "failed to read file {file} on {this.url} ({this.shaHash})"
             )
-
-        result = output

@@ -253,40 +253,65 @@ begin Loader:
                 else:
                     updateDirs.incl(targetDir)
 
+        proc hasFile(path: string): bool =
+            result = false
+            for item in walkDir(path):
+                if fileExists(item.path):
+                    return true
+
         proc scanDeletes(dir: string, depth: int = 0): void =
             var
                 delCount = 0
                 subCount = 0
             for item in walkDir(dir):
                 inc subCount
-                if not dirExists(item.path): # We're only looking for directories
+                #
+                # We're only looking for directories
+                #
+                if not dirExists(item.path):
                     continue
-                if symLinkExists(item.path): # Enable people to link to work on things
+                #
+                # We don't want to touch people's links
+                #
+                if symLinkExists(item.path):
                     continue
+                #
+                # We don't want to touch any retained directories
+                #
                 if retainDirs.contains(item.path):
                     continue
-                if percy.hasFile(item.path):
-                    if dirExists(item.path / ".git"): # Check if this is a git directory
-                        percy.execIn(
-                            ExecHook as (
-                                block:
-                                    error = percy.execCmdCapture(output, @[
-                                        fmt "git status --porcelain"
-                                    ])
-                            ),
-                            item.path
-                        )
-
-                        if error == 0 and output.len > 0 and not force:
-                            info fmt "> Skip: '{item.path}': has unsaved changes (force with -f)"
-                            if updateDirs.contains(item.path):
-                                updateDirs.excl(item.path)
-
-                    if not updateDirs.contains(item.path):
-                        deleteDirs.incl(item.path)
-                        inc delCount
-                else:
+                #
+                # At this point, we know the item is a directory and is not being retained.
+                # If it contains no files, we can recursively scan it and continue.
+                #
+                if not hasFile(item.path):
                     scanDeletes(item.path, depth + 1)
+                    continue
+                #
+                # The item has files, so we want to determine the nature of it.  If it's a git
+                # repo, we want to exclude it if it has changes.
+                #
+                if dirExists(item.path / ".git"):
+                    percy.execIn(
+                        ExecHook as (
+                            block:
+                                error = percy.execCmdCapture(output, @[
+                                    fmt "git status --porcelain"
+                                ])
+                        ),
+                        item.path
+                    )
+
+                    if error == 0 and output.len > 0 and not force:
+                        info fmt "> Skip: '{item.path}' has unsaved changes (force with -f)"
+                        if updateDirs.contains(item.path):
+                            updateDirs.excl(item.path)
+                #
+                # Finally, if we're not updating the item, just delete it.
+                #
+                if not updateDirs.contains(item.path):
+                    deleteDirs.incl(item.path)
+                    inc delCount
             if subCount == delCount and depth > 0:
                 deleteDirs.incl(dir)
 

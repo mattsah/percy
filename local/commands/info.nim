@@ -22,92 +22,53 @@ begin InfoCommand:
                 else:
                     print "Not Implemented Yet"
 
-            of "lock", "graph":
+            of "lock":
                 let
-                    locks = parseJson(readFile("percy.lock"))
+                    lockFile = LockFile.init("percy.lock")
 
-                if useJson and infoType == "lock":
-                    print pretty(locks)
+                if useJson:
+                    print pretty(%lockFile)
                 else:
-                    let
-                        lockCount = locks.len
-                    var
-                        dependents = initOrderedTable[Commit, OrderedSet[Commit]](lockCount)
-                        dependencies = initOrderedTable[Commit, OrderedSet[Commit]](lockCount)
-                        workDirs = initTable[Commit, string](lockCount)
-                        commits = newSeq[Commit](lockCount)
-
-                    for i, node in locks.getElems():
+                    for commit in lockFile.commits:
                         let
-                            commit = Commit.fromLockFile(node)
-                        commits[i] = commit
-                        workDirs[commit] = this.settings.getWorkDir(commit.repository.url)
-                        dependents[commit] = initOrderedSet[Commit]()
+                            workDir = this.settings.getWorkDir(commit.repository.url)
+                        print fmt "{workDir} [{fg.green}{$commit.version}{fg.stop}]"
+                        print fmt "> URL: {commit.repository.url}"
+                        print fmt "> Hash: {commit.repository.shaHash}"
+                        print fmt "> Commit: {commit.id}"
 
-                    commits = commits.sortedByIt(workDirs[it])
+            of "graph":
+                let
+                    lockFile = LockFile.init("percy.lock")
+                    itemGraphs = lockFile.graph(graph, this.settings)
 
-                    if infoType == "graph":
-                        proc collectRequirements(commit: Commit): void =
-                            dependencies[commit] = initOrderedSet[Commit]()
-                            for requirements in commit.info.requires:
-                                for requirement in requirements:
-                                    let
-                                        requirement = graph.parseRequirement(requirement)
-                                    for i, node in locks.getElems():
-                                        let
-                                            nodeUrl = node["repository"].getStr()
-                                        if nodeUrl == requirement.repository.url:
-                                            dependencies[commit].incl(commits[i])
-                                            if not dependencies.hasKey(commits[i]):
-                                                collectRequirements(commits[i])
-                                            for subDependency in dependencies[commits[i]]:
-                                                dependencies[commit].incl(subDependency)
+                if useJson:
+                    var
+                        results = newJObject()
+                    for commit, itemGraph in itemGraphs:
+                        results[itemGraph.directory] = %(
+                            commit: commit.id,
+                            version: $commit.version,
+                            dependents: itemGraph.dependents.mapIt(itemGraphs[it].directory),
+                            dependencies: itemGraph.dependencies.mapIt(itemGraphs[it].directory)
+                        )
 
-                        for commit in commits:
-                            collectRequirements(commit)
+                    print pretty(results)
 
-                        for commit in commits:
-                            for dependent, dependencies in dependencies:
-                                if dependencies.contains(commit):
-                                    dependents[commit].incl(dependent)
-
-                            dependents[commit] = dependents[commit]
-                                .toSeq()
-                                .sortedByIt(workDirs[it])
-                                .toOrderedSet()
-
-                            dependencies[commit] = dependencies[commit]
-                                .toSeq()
-                                .sortedByIt(workDirs[it])
-                                .toOrderedSet()
-
-                    if useJson:
-                        var
-                            results = newJObject()
-                        for i, commit in commits:
-                            results[workDirs[commit]] = %(
-                                commit: commit.id,
-                                version: $commit.version,
-                                dependents: dependents[commit].mapIt(workDirs[it]),
-                                dependencies: dependencies[commit].mapIt(workDirs[it])
-                            )
-                        print pretty(results)
-
-                    else:
-                        for i, commit in commits:
-                            print fmt "{workDirs[commit]} [{fg.green}{$commit.version}{fg.stop}]"
-                            print fmt "> URL: {commit.repository.url}"
-                            print fmt "> Commit: {commit.id}"
-                            if infoType == "graph" and dependents[commit].len:
-                                print fmt "> Dependents: "
-                                for dependent in dependents[commit]:
-                                    print fmt "      {workDirs[dependent]}"
-
-                            if infoType == "graph" and dependencies[commit].len:
-                                print fmt "> Dependencies: "
-                                for dependency in dependencies[commit]:
-                                    print fmt "      {workDirs[dependency]}"
-
+                else:
+                    for commit, itemGraph in itemGraphs:
+                        print fmt "{itemGraph.directory} [{fg.green}{$commit.version}{fg.stop}]"
+                        print fmt "> URL: {commit.repository.url}"
+                        print fmt "> Hash: {commit.repository.shaHash}"
+                        print fmt "> Commit: {commit.id}"
+                        if itemGraph.dependents.len:
+                            print fmt "> Dependents: "
+                            for dependent in itemGraph.dependents:
+                                print fmt "      {itemGraphs[dependent].directory}"
+                        if itemGraph.dependencies.len:
+                            print fmt "> Dependencies: "
+                            for dependency in itemGraph.dependencies:
+                                print fmt "      {itemGraphs[dependency].directory}"
 
             else:
                 fail fmt "Invalid type specified"

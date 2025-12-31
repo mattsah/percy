@@ -1,6 +1,3 @@
-
-
-
 import
     percy,
     basecli
@@ -8,45 +5,58 @@ import
 type
     MetaCommand = ref object of BaseCommand
 
+#[
+    Get or set meta data in the JSON configuration
+]#
 begin MetaCommand:
+    #[
+        Translated a user provided string value into a proper JSON node
+    ]#
+    method translateValue(value: string): JsonNode {. base .} =
+        var
+            value = value.strip()
+            floatVal: float
+            intVal: int
+
+        if value == "null":
+            result = newJNull()
+        elif value == "true":
+            result = newJBool(true)
+        elif value == "false":
+            result = newJBool(false)
+        elif value.parseInt(intVal) == value.len:
+            result = newJInt(intVal)
+        elif value.parseFloat(floatVal) == value.len:
+            result = newJFloat(floatVal)
+        else:
+            result = newJString(value)
+
+    #[
+        Execute the command
+    ]#
     method execute(console: Console): int =
         result = super.execute(console)
 
         let
             path = console.getArg("path")
             action = console.getArg("action")
-            value = console.getArg("value").strip()
+            value = console.getArg("value")
             force = parseBool(console.getOpt("force"))
         var
-            current: JsonNode
-            jsonVal: JsonNode
-            floatVal: float
-            intVal: int
-
-        if value == "null":
-            jsonVal = newJNull()
-        elif value == "true":
-            jsonVal = newJBool(true)
-        elif value == "false":
-            jsonVal = newJBool(false)
-        elif value.parseInt(intVal) == value.len:
-            jsonVal = newJInt(intVal)
-        elif value.parseFloat(floatVal) == value.len:
-            jsonVal = newJFloat(floatVal)
-        else:
-            jsonVal = newJString(value)
+            newVal = this.translateValue(value)
+            curVal: JsonNode
 
         case action:
             of "get":
-                current = this.settings.data.meta.get(path)
+                curVal = this.settings.data.meta.get(path)
 
-                if current.kind == JNull:
-                    print $jsonVal
+                if curVal.kind == JNull:
+                    print $newVal
                 else:
-                    print $current
+                    print $curVal
 
             of "set":
-                if jsonVal.kind == JNull:
+                if newVal.kind == JNull:
                     var
                         parts = path.split('.')
                     let
@@ -56,10 +66,10 @@ begin MetaCommand:
                     if parts.len == 0:
                         this.settings.data.meta.delete(setKey)
                     else:
-                        current = this.settings.data.meta.get(prePath)
+                        curVal = this.settings.data.meta.get(prePath)
 
-                        if current.kind == JObject:
-                            current.delete(setKey)
+                        if curVal.kind == JObject:
+                            curVal.delete(setKey)
                         else:
                             info fmt "Unsetting has no effect"
                             info fmt "> Path: {path}"
@@ -67,15 +77,15 @@ begin MetaCommand:
                             return 1
                 else:
                     try:
-                        current = this.settings.data.meta.get(path)
+                        curVal = this.settings.data.meta.get(path)
 
-                        if current.kind notin {jsonVal.kind, JNull} and not force:
+                        if curVal.kind notin {newVal.kind, JNull} and not force:
                             raise newException(
                                 ValueError,
                                 fmt "Value `{value}` would change type (force with -f)"
                             )
                         else:
-                            this.settings.data.meta.set(path, jsonVal)
+                            this.settings.data.meta.set(path, newVal)
                     except Exception as e:
                         fail fmt "Cannot set value"
                         info fmt "> Path: {path}"

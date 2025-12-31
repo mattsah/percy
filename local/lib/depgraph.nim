@@ -45,12 +45,12 @@ type
 
     Solver* = ref object of Class
 
-    SolverResult* = object
+    Solution* = seq[Commit]
+
+    SolverResults* = object
         solution*: Option[Solution]
         backtrackCount*: int
         timeTaken*: float
-
-    Solution* = seq[Commit]
 
 begin Constraint:
     discard
@@ -279,13 +279,13 @@ begin DepGraph:
                             contents = commit.repository.readFile(file, commit.id)
                         when debugging(3):
                             print fmt "Graph: Parsing nimble contents"
-                            print fmt "> Repository: {commit.repository.url}"
+                            print fmt "> URL: {commit.repository.url}"
                             print fmt "> Commit: {commit.version} ({commit.id})"
                             print indent(contents, 4)
                         commit.info = parser.parse(contents)
                     except:
                         print fmt "Graph: Failed parsing nimble file {file}"
-                        print fmt "> Repository: {commit.repository.url}"
+                        print fmt "> URL: {commit.repository.url}"
                         print fmt "> Commit: {commit.version} ({commit.id})"
                         print fmt "> Error: {getCurrentExceptionMsg()}"
                         quit(1)
@@ -305,15 +305,18 @@ begin DepGraph:
         if not this.commits.hasKey(repository):
             if not repository.exists:
                 raise MissingRepositoryException(
-                    msg: fmt "required package '{repository.original}' does not seem to exist",
+                    msg: fmt "required package '{requirement.package}' does not seem to exist",
                     repository: repository
                 )
 
             if not this.quiet:
                 print fmt "Graph: Adding Repository (Scanning Available Tags)"
-                print fmt "> Repository: {repository.url}"
+                print fmt "> URL: {repository.url}"
 
-            this.commits[repository] = repository.getCommits(this.newest)
+            if this.newest:
+                discard repository.update(quiet = this.quiet, force = true)
+
+            this.commits[repository] = repository.getCommits()
 
         if requirement.commits.len > 0:
             for id in requirement.commits:
@@ -342,7 +345,7 @@ begin DepGraph:
             if not this.quiet:
                 print fmt "Graph: Adding Requirement"
                 print fmt "> Dependent: {commit.repository.url} @ {commit.version}"
-                print fmt "> Depends On: {requirement.repository.url} @ {requirement.versions}"
+                print fmt "> Dependency: {requirement.repository.url} @ {requirement.versions}"
 
             this.addRepository(requirement)
 
@@ -362,7 +365,7 @@ begin DepGraph:
                 for commit in toRemove:
                     if not this.quiet:
                         print fmt "Graph: Excluding Commit (Not Usable At Top-Level)"
-                        print fmt "> Repository: {commit.repository.url}"
+                        print fmt "> URL: {commit.repository.url}"
                         print fmt "> Version: {commit.version}"
                     this.commits[commit.repository].excl(commit)
             else:
@@ -381,7 +384,7 @@ begin DepGraph:
                 else:
                     if not this.quiet:
                         print fmt "Graph: Skipping Resolution (Already Resolved)"
-                        print fmt "> Repository: {commit.repository.url}"
+                        print fmt "> URL: {commit.repository.url}"
                         print fmt "> Version: {commit.version}"
 
             discard this.stack.pop()
@@ -449,7 +452,7 @@ begin Solver:
     #[
     ##
     ]#
-    method solve*(graph: DepGraph): SolverResult {. base .} =
+    method solve*(graph: DepGraph): SolverResults {. base .} =
         var
             level = 0
             assignments = initTable[Repository, Assignment]()
@@ -467,7 +470,7 @@ begin Solver:
                 for repository, assignment in assignments:
                     solution.add(assignment.commit)
 
-                return SolverResult(
+                return SolverResults(
                     solution: some(solution),
                     backtrackCount: backtrackCount
                 )
@@ -527,7 +530,7 @@ begin Solver:
                     inc backtrackCount
 
                     if level == 0:
-                        return SolverResult(
+                        return SolverResults(
                             solution: none(Solution),
                             backtrackCount: backtrackCount
                         )
@@ -554,3 +557,7 @@ begin Solver:
                 # 1. Assigned a commit for the given repository
                 # 2. Backtracked one level up and removed the current assignment from candidates.
                 break
+
+begin SolverResults:
+    method isEmpty*(): bool {. base .} =
+        result = isNone(this.solution)

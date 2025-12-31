@@ -207,7 +207,7 @@ begin Settings:
                 of RCloneCreated:
                     updated = true
                 of RCloneExists:
-                    case source.repository.update(force):
+                    case source.repository.update(force = force):
                         of RUpdated:
                             updated = true
                         else:
@@ -218,7 +218,7 @@ begin Settings:
                 of RCloneCreated:
                     updated = true
                 of RCloneExists:
-                    case package.repository.update(force):
+                    case package.repository.update(force = force):
                         of RUpdated:
                             updated = true
                         else:
@@ -312,4 +312,3 @@ begin Settings:
     proc open*(config: string = percy.name & ".json"): Settings {. static .} =
         result = self.init()
         result.load(config)
-
