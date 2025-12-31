@@ -27,7 +27,7 @@ begin FetchCommand:
 
         raise newException(
             ValueError,
-            "cannot find version corresponding to {$verison}"
+            fmt "cannot find version corresponding to {$verison}"
         )
 
     #[
