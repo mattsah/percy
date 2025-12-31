@@ -1,5 +1,7 @@
 {
-  "meta": {},
+  "meta": {
+    "build": "nim build"
+  },
   "sources": {
     "nim-lang": "gh://nim-lang/packages"
   },

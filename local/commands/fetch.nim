@@ -22,6 +22,9 @@ begin FetchCommand:
                 if version == candidate.version:
                     return candidate
 
+        discard repository.update(quiet = this.verbosity < 1, force = true)
+        result = this.resolveCommit(repository, version)
+
         raise newException(
             ValueError,
             "cannot find version corresponding to {$verison}"
@@ -63,7 +66,6 @@ begin FetchCommand:
         var
             error: int
             output: string
-            existingFiles: HashSet[string]
             targetConfig: JsonNode
             nimbleInfo: NimbleFileInfo
             buildNode: JsonNode
@@ -81,10 +83,6 @@ begin FetchCommand:
                 nimbleInfo = parser.parse(readFile(file.path))
                 break
 
-        for file in walkDir(getCurrentDIr() / nimbleInfo.binDir):
-            if fileExists(file.path):
-                existingFiles.incl(file.path)
-
         (output, error) = execCmdEx(buildCmd)
 
         if this.verbosity > 0:
@@ -96,9 +94,11 @@ begin FetchCommand:
                 fmt "failed executing `{buildCmd}` with error ({error})"
             )
 
-        for file in walkDir(getCurrentDIr() / nimbleInfo.binDir):
-            if fileExists(file.path) and not existingFiles.contains(file.path):
-                result.incl(file.path)
+        for file in nimbleInfo.bin:
+            let
+                filePath = absolutePath(nimbleInfo.binDir) / file
+            if fileExists(filePath):
+                result.incl(filePath)
 
     #[
 
@@ -106,17 +106,18 @@ begin FetchCommand:
     method execute(console: Console): int =
         result = super.execute(console)
 
-        let
-            binDir = percy.getAppLocalDir("bin")
+        const
             buildDir = percy.getAppLocalDir("build")
+        let
             url = console.getArg("url")
             version = console.getArg("version")
-            newest = parseBool(console.getOpt("newest"))
+            binDir = absolutePath(console.getOpt("bin-directory").expandTilde())
             keep = parseBool(console.getOpt("keep"))
         var
             commit: Commit
             repository: Repository
             targetDir: string
+            workDir: string
             output: string
             error: int
 
@@ -130,14 +131,7 @@ begin FetchCommand:
 
         try:
             repository = Repository.init(url)
-
-            if newest:
-                discard repository.update(force = true)
-            else:
-                discard repository.update(force = false)
-
-            discard repository.prune()
-
+            discard repository.clone()
         except Exception as e:
             fail fmt "Could Not Fetch From Repository"
             info fmt "> Error: {e.msg}"
@@ -145,14 +139,19 @@ begin FetchCommand:
 
         try:
             commit = this.resolveCommit(repository, ver(version))
-
         except Exception as e:
             fail fmt "Could Not Fetch Requested Version"
             info fmt "> Error: {e.msg}"
             info fmt "> Version: {version}"
             return 2
 
-        targetDir = buildDir / repository.shaHash / commit.id
+        workDir = buildDir / repository.shaHash
+        targetDir = workDir / commit.id
+
+        if not keep:
+            for dir in walkDir(workDir):
+                if dir.path != targetDir:
+                    removeDir(dir.path)
 
         if not dirExists(targetDir):
             error = repository.exec(
@@ -166,6 +165,7 @@ begin FetchCommand:
                 fail fmt "Could Not Create Build Worktree"
                 return 3
 
+        discard repository.prune()
         setCurrentDir(targetDir)
 
         error = this.initializeWorkTree()
@@ -183,7 +183,12 @@ begin FetchCommand:
                 binFiles = this.buildWorkTree()
 
             for file in binFiles:
-                createSymlink(file, binDir / file.extractFilename())
+                let
+                    linkPath = binDir / file.extractFilename()
+                if symlinkExists(linkPath):
+                    removeFile(linkPath)
+                createSymlink(file, linkPath)
+
         except Exception as e:
             fail fmt "Failed Building Worktree"
             info fmt "> Error: {e.msg}"
@@ -208,14 +213,15 @@ shape FetchCommand: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
             Opt(
-                flag: 'n',
-                name: "newest",
-                description: "Force fetching of HEADs even if local cache is not stale"
-            ),
-            Opt(
                 flag: 'k',
                 name: "keep",
                 description: "Keep existing versions for faster switching"
+            ),
+            Opt(
+                flag: 'b',
+                name: "bin-directory",
+                default: "~/.local/bin",
+                description: "Change where the binary links are stored"
             )
         ]
     )
