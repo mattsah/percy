@@ -11,9 +11,11 @@ begin RequireCommand:
     ]#
     method updateNimbleInfo(graph: DepGraph, requirement: Requirement): bool {. base .} =
         let
-            requireCount = this.nimbleInfo.requires.len
+            requireNext = this.nimbleInfo.requires.len
         var
             existingRequirement: Requirement
+
+        result = true
 
         for i, requirements in this.nimbleInfo.requires:
             for j, existingLine in requirements:
@@ -24,7 +26,7 @@ begin RequireCommand:
                     result = false
 
         if result:
-            this.nimbleMap = this.nimbleMap & "\n" & "{%requires-" & $requireCount & "%}"
+            this.nimbleMap = this.nimbleMap & "\n" & "{%requires-" & $requireNext & "%}"
             this.nimbleInfo.requires.add(@[$requirement])
 
     #[
@@ -72,6 +74,8 @@ begin RequireCommand:
 
         isAdded = this.updateNimbleInfo(graph, requirement)
         newContent = parser.render(this.nimbleMap, this.nimbleInfo)
+
+        discard requirement.repository.update(quiet = this.verbosity < 1, force = true)
 
         if not skip:
             result = this.resolve()

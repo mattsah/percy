@@ -411,6 +411,13 @@ begin DepGraph:
             for requirement in requirements:
                 this.addRequirement(commit, this.parseRequirement(requirement), 0)
 
+        for repository in this.commits.keys:
+            if not this.tracking.hasKey(repository):
+                raise newException(
+                    ValueError,
+                    fmt "could not find usable version(s) for '{repository.url}'"
+                )
+
         #
         # Determine sorting possibly by arguments to build, for now we'll just sort by least to
         # most available commits/versions with respect to repositories.  And from highest version
