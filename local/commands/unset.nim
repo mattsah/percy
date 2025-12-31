@@ -43,13 +43,11 @@ begin UnsetCommand:
 
         except Exception as e:
             fail fmt "Invalid {unsetType} specified"
-            info fmt "> Error: does not appear to be set."
+            info fmt "> Error: {e.msg}"
             info fmt "> Alias: {unsetAlias}"
             return 1
 
-        if skip:
-            this.settings.prepare(force = false, save = false)
-        else:
+        if not skip:
             this.settings.prepare(force = true, save = true)
             result = this.resolve()
 

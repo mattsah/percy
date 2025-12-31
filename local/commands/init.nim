@@ -223,11 +223,12 @@ begin InitCommand:
                 this.settings.getRepository("gh://nim-lang/packages")
             )
 
+        this.updateConfig(withoutTasks = without)
+
         if skip:
             this.settings.prepare(force = false, save = false)
             this.settings.save()
         else:
-            this.updateConfig(without)
             this.settings.prepare(force = true, save = true)
             this.settings.save()
 

@@ -196,8 +196,7 @@ begin Settings:
             index = percy.target / "index." & this.config
             cacheDir = percy.getAppCacheDir()
         var
-            refresh = force
-            updated = false
+            reindex = force
 
         if not dirExists(cacheDir):
             createDir(cacheDir)
@@ -205,38 +204,34 @@ begin Settings:
         for name, source in this.data.sources:
             case source.repository.clone():
                 of RCloneCreated:
-                    updated = true
+                    reindex = true
                 of RCloneExists:
                     case source.repository.update(force = force):
                         of RUpdated:
-                            updated = true
-                        else:
-                            discard
-
-        for name, package in this.data.packages:
-            case package.repository.clone():
-                of RCloneCreated:
-                    updated = true
-                of RCloneExists:
-                    case package.repository.update(force = force):
-                        of RUpdated:
-                            updated = true
+                            reindex = true
                         else:
                             discard
 
         #
-        # Determine if we need to re-index and refresh.  There are a handful of conditions for
-        # when this can occur.
+        # We only attempt to clone package repos that don't exist, further updates will be handled
+        # by appropriate commands.  This is primarily to ensure if someone manually added a
+        # package it's functional.
+        #
+        for name, package in this.data.packages:
+            discard package.repository.clone()
+
+        #
+        # Determine if we need to re-index independent of source/package updates.
         #
         if fileExists(this.config):
             if not fileExists(index):
-                refresh = true
+                reindex = true
             elif getLastModificationTime(this.config) > getLastModificationTime(index):
-                refresh = true
+                reindex = true
             else:
                 discard
 
-        if refresh or updated:
+        if reindex:
             this.index()
             if save:
                 this.saveIndex()

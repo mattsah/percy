@@ -61,9 +61,7 @@ begin SetCommand:
             info fmt "> URL: {setUrl}"
             return 2
 
-        if skip:
-            this.settings.prepare(force = false, save = false)
-        else:
+        if not skip:
             this.settings.prepare(force = true, save = true)
             result = this.resolve()
 
