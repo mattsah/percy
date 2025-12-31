@@ -75,9 +75,8 @@ begin RequireCommand:
         isAdded = this.updateNimbleInfo(graph, requirement)
         newContent = parser.render(this.nimbleMap, this.nimbleInfo)
 
-        discard requirement.repository.update(quiet = this.verbosity < 1, force = true)
-
         if not skip:
+            discard requirement.repository.update(quiet = this.verbosity < 1, force = true)
             result = this.resolve()
 
         if result == 0:
