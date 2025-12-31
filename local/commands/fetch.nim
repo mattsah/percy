@@ -25,10 +25,11 @@ begin FetchCommand:
         discard repository.update(quiet = this.verbosity < 1, force = true)
         result = this.resolveCommit(repository, version)
 
-        raise newException(
-            ValueError,
-            fmt "cannot find corresponding version"
-        )
+        if not result.id:
+            raise newException(
+                ValueError,
+                fmt "cannot find corresponding version"
+            )
 
     #[
 
