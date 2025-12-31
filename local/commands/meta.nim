@@ -73,7 +73,7 @@ begin MetaCommand:
                         else:
                             info fmt "Unsetting has no effect"
                             info fmt "> Path: {path}"
-                            info fmt "> Reason: `{prePath}` is not an object"
+                            info fmt "> Hint: `{prePath}` is not an object"
                             return 1
                 else:
                     try:
@@ -82,14 +82,14 @@ begin MetaCommand:
                         if curVal.kind notin {newVal.kind, JNull} and not force:
                             raise newException(
                                 ValueError,
-                                fmt "Value `{value}` would change type (force with -f)"
+                                fmt "setting `{value}` would change type (force with -f)"
                             )
                         else:
                             this.settings.data.meta.set(path, newVal)
                     except Exception as e:
                         fail fmt "Cannot set value"
+                        info fmt "> Error: {e.msg}"
                         info fmt "> Path: {path}"
-                        info fmt "> Reason: {e.msg}"
                         return 2
 
                 this.settings.saveConfig()

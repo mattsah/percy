@@ -7,6 +7,9 @@ type
     InstallCommand = ref object of BaseGraphCommand
 
 begin InstallCommand:
+    #[
+        Execute the command
+    ]#
     method execute(console: Console): int =
         result = super.execute(console)
 
@@ -21,6 +24,7 @@ begin InstallCommand:
         except Exception as e:
             fail fmt "Unable to install from lockfile"
             info fmt "> Error: {e.msg}"
+            return 1
 
         if lockFile.exists:
             discard loader.loadSolution(lockFile.solution, force)
@@ -36,6 +40,9 @@ begin InstallCommand:
                 command.add("-f")
 
             result = subConsole.run(command)
+
+            if result != 0:
+                result = 10 + result
 
 shape InstallCommand: @[
     Command(

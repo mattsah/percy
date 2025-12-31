@@ -76,6 +76,12 @@ begin AnyConstraint:
         )
 
 begin Requirement:
+    proc `$`*(): string =
+        if this.versions.toLower() == "any":
+            result = this.package
+        else:
+            result = fmt "{this.package} {this.versions}"
+
     method repository*(): Repository {. base .} =
         result = this.repository
 

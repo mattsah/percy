@@ -8,7 +8,16 @@ import
 type
     SetCommand = ref object of BaseGraphCommand
 
+#[
+    The `set` command is responsible for adding a source or package to the configuration file,
+    triggering updates and re-indexing of existing and new sources and packages and, by default
+    attempting to re-resolve the dependency graph.  Resolution can be skipped via the `-s` option
+    in order to enable configuration management only.
+]#
 begin SetCommand:
+    #[
+        Execute the command
+    ]#
     method execute(console: Console): int =
         result = super.execute(console)
 
@@ -23,25 +32,19 @@ begin SetCommand:
         if setAlias == "<path of url>":
             setAlias = parseUri(repository.url).path.toLower().strip(chars = {'/'})
 
-        case setType:
-            of "source":
-                try:
+        try:
+            case setType:
+                of "source":
                     Source.validateName(setAlias)
                     this.settings.data.sources[setAlias] = Source.init(repository)
-                except:
-                    fail fmt "Invalid source alias specified"
-                    info fmt "> Error: {getCurrentExceptionMsg()}"
-                    info fmt "> Source Alias: {setAlias}"
-                    return 1
-            of "package":
-                try:
+                of "package":
                     Package.validateName(setAlias)
                     this.settings.data.packages[setAlias] = Package.init(repository)
-                except:
-                    fail fmt "Invalid package alias specified"
-                    info fmt "> Error: {getCurrentExceptionMsg()}"
-                    info fmt "> Package Alias: {setAlias}"
-                    return 1
+        except Exception as e:
+            fail fmt "Invalid {setType} alias specified"
+            info fmt "> Error: {e.msg}"
+            info fmt "> Alias: {setAlias}"
+            return 1
 
         try:
             Repository.validateUrl(repository.url)
@@ -51,32 +54,29 @@ begin SetCommand:
                     ValueError,
                     fmt "could not reach repository at {setUrl}"
                 )
-        except:
+
+        except Exception as e:
             fail fmt "Invalid url specified"
-            info fmt ">  Error: {getCurrentExceptionMsg()}"
+            info fmt "> Error: {e.msg}"
+            info fmt "> URL: {setUrl}"
             return 2
 
-        this.settings.prepare(true, skip)
-
-        if not skip:
+        if skip:
+            this.settings.prepare(force = false, save = false)
+        else:
+            this.settings.prepare(force = true, save = true)
             result = this.resolve()
 
         if result == 0:
             this.settings.save()
             print fmt "Successfully added {setType}"
-            print fmt "> Repository: {repository.url}"
-            print fmt "> Package Alias: {setAlias}"
+            print fmt "> URL: {repository.url}"
+            print fmt "> Alias: {setAlias}"
         else:
-            case setType:
-                of "source":
-                    fail fmt "Unable to update after setting source, no files written"
-                    info fmt "> Repository: {repository.url}"
-                    info fmt "> Source Alias: {setAlias}"
-
-                of "package":
-                    fail fmt "Unable to update after setting package, no files written"
-                    info fmt "> Repository: {repository.url}"
-                    info fmt "> Package Alias: {setAlias}"
+            fail fmt "Unable to update after setting {setType}, no files written"
+            info fmt "> URL: {repository.url}"
+            info fmt "> Alias: {setAlias}"
+            result = 10 + result
 
 shape SetCommand: @[
     Command(

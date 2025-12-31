@@ -5,7 +5,14 @@ import
 type
     UpdateCommand = ref object of BaseGraphCommand
 
+#[
+    The update command is responsible for updaing all dependency versions to the latest versions
+    that match constraints and writing the solution to the lock file.
+]#
 begin UpdateCommand:
+    #[
+        Execute the command
+    ]#
     method execute(console: Console): int =
         result = super.execute(console)
 
@@ -24,19 +31,19 @@ shape UpdateCommand: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
             Opt(
-                flag: 'f',
-                name: "force",
-                description: "Force checkouts which may otherwise destroy unsaved work in vendor"
-            ),
-            Opt(
                 flag: 'n',
                 name: "newest",
-                description: "Force fetching of HEADs even if local cache is not stale"
+                description: "Fetch remote HEADs even if local cache is not stale (true update)"
             ),
             Opt(
                 flag: 'p',
                 name: "preserve",
-                description: "Preserve all files by skipping any mapping operations"
+                description: "Preserve all local files by skipping any mapping operations"
+            ),
+            Opt(
+                flag: 'f',
+                name: "force",
+                description: "Force checkouts which may otherwise destroy unsaved work in vendor"
             )
         ]
     )

@@ -224,11 +224,11 @@ begin InitCommand:
             )
 
         if skip:
-            this.settings.prepare(true, true)
+            this.settings.prepare(force = false, save = false)
             this.settings.save()
         else:
             this.updateConfig(without)
-            this.settings.prepare(true, false)
+            this.settings.prepare(force = true, save = true)
             this.settings.save()
 
             if url != "<none>":
@@ -241,6 +241,9 @@ begin InitCommand:
                     command.add("-v:" & $this.verbosity)
 
                 result = subConsole.run(command)
+
+                if result != 0:
+                    result = 10 + result
 
 shape InitCommand: @[
     Command(

@@ -57,7 +57,7 @@ begin Repository:
         if url.startsWith(getCurrentDir() & "/"):
             raise newException(
                 ValueError,
-                fmt "repository at '{url}' should not be in your working directory"
+                fmt "repository should not be in your working directory"
             )
 
     proc qualifyUrl*(url: string): string {. static .} =

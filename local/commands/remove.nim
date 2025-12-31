@@ -9,7 +9,7 @@ begin RemoveCommand:
     #[
         Remove all related nimble info for the given repository
     ]#
-    method deleteNimbleInfo(repository: Repository): bool {. base .} =
+    method updateNimbleInfo(repository: Repository): bool {. base .} =
         let
             graph = this.getGraph()
 
@@ -96,13 +96,12 @@ begin RemoveCommand:
             repository: Repository
 
         repository = this.settings.getRepository(package)
-        isRemoved = this.deleteNimbleInfo(repository)
+        isRemoved = this.updateNimbleInfo(repository)
 
         if not isRemoved:
             fail fmt "Package '{package}' does not seem to be currently required"
             if not repository.url.contains("://"):
-                info fmt "  Hint: you may have added it as a URL instead of a package alias"
-
+                info fmt "> Hint: you may have added it as a URL instead of a package alias"
             return 1
 
         newContent = parser.render(this.nimbleMap, this.nimbleInfo)
@@ -115,6 +114,7 @@ begin RemoveCommand:
         else:
             fail fmt "Unable to update after removing requirement, no files written"
             info fmt "> Package: {package}"
+            return 10 + result
 
 shape RemoveCommand: @[
     Command(

@@ -11,7 +11,7 @@ begin InfoCommand:
         result = super.execute(console)
 
         let
-            infoType = console.getArg("type", "nimble")
+            infoType = console.getArg("type")
             useJson = console.getOpt("json") of true
             graph = this.getGraph()
 
@@ -20,7 +20,17 @@ begin InfoCommand:
                 if useJson:
                     print pretty(%this.nimbleInfo)
                 else:
-                    print "Not Implemented Yet"
+                    print this.nimbleInfo.description
+                    print fmt "> Author: {this.nimbleInfo.author}"
+                    print fmt "> License: {this.nimbleInfo.license}"
+                    print fmt "> Requirements:"
+                    for requirements in this.nimbleInfo.requires:
+                        for requirement in requirements:
+                            let
+                                requirement = graph.parseRequirement(requirement)
+                            print fmt "      ", 0
+                            print fmt "{fg.green}{requirement.package}{fg.stop} ", 0
+                            print fmt "{requirement.versions}"
 
             of "lock":
                 let

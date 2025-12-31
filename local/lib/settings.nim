@@ -191,7 +191,7 @@ begin Settings:
     #[
 
     ]#
-    method prepare*(force: bool = false, noSave: bool = false): void {. base .} =
+    method prepare*(force: bool = false, save: bool = true): void {. base .} =
         let
             index = percy.target / "index." & this.config
             cacheDir = percy.getAppCacheDir()
@@ -238,7 +238,7 @@ begin Settings:
 
         if refresh or updated:
             this.index()
-            if not noSave:
+            if save:
                 this.saveIndex()
         else:
             if fileExists(index):
@@ -299,11 +299,9 @@ begin Settings:
 
         #[
             If no file existed, we don't have any source/package data, but we'll run prepare
-            in the event we do, which will check that our config files are at least created,
-            as well as our vendor dir and, if we did have source/package data, will clone and
-            update those repositories if necessary.
+            in the event we do.
         ]#
-        this.prepare(false, true)
+        this.prepare(force = false, save = false)
 
 
     #[

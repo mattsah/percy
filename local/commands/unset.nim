@@ -5,7 +5,16 @@ import
 type
     UnsetCommand = ref object of BaseGraphCommand
 
+#[
+    The `unset` command is responsible for removing a source or package from the configuration
+    file, triggering updates and re-indexing of remaining sources and packages and, by default
+    attempting to re-resolve the dependency graph.  Resolution can be skipped via the `-s` option
+    in order to enable configuration management only.
+]#
 begin UnsetCommand:
+    #[
+        Execute the command
+    ]#
     method execute(console: Console): int =
         result = super.execute(console)
 
@@ -16,48 +25,44 @@ begin UnsetCommand:
         var
             repository: Repository
 
-        case unsetType:
-            of "source":
-                if not this.settings.data.sources.hasKey(unsetAlias):
-                    fail fmt "Invalid source alias specified"
-                    info fmt "> Error: does not appear to be set."
-                    info fmt "> Source Alias: {unsetAlias}"
-                    return 1
+        try:
+            case unsetType:
+                of "source":
+                    if not this.settings.data.sources.hasKey(unsetAlias):
+                        raise newException(ValueError, "does not appear to be set")
 
-                repository = this.settings.data.sources[unsetAlias].repository
-                this.settings.data.sources.del(unsetAlias)
+                    repository = this.settings.data.sources[unsetAlias].repository
+                    this.settings.data.sources.del(unsetAlias)
 
-            of "package":
-                if not this.settings.data.packages.hasKey(unsetAlias):
-                    fail fmt "Invalid package alias specified"
-                    info fmt "> Error: does not appear to be set."
-                    info fmt "> Package Alias: {unsetAlias}"
-                    return 1
+                of "package":
+                    if not this.settings.data.packages.hasKey(unsetAlias):
+                        raise newException(ValueError, "does not appear to be set")
 
-                repository = this.settings.data.packages[unsetAlias].repository
-                this.settings.data.packages.del(unsetAlias)
+                    repository = this.settings.data.packages[unsetAlias].repository
+                    this.settings.data.packages.del(unsetAlias)
 
-        this.settings.prepare(true, skip)
+        except Exception as e:
+            fail fmt "Invalid {unsetType} specified"
+            info fmt "> Error: does not appear to be set."
+            info fmt "> Alias: {unsetAlias}"
+            return 1
 
-        if not skip:
+        if skip:
+            this.settings.prepare(force = false, save = false)
+        else:
+            this.settings.prepare(force = true, save = true)
             result = this.resolve()
 
         if result == 0:
             this.settings.save()
             print fmt "Successfully unset {unsetType}"
-            print fmt "> Repository: {repository.url}"
-            print fmt "> Package Alias: {unsetAlias}"
+            print fmt "> URL: {repository.url}"
+            print fmt "> Alias: {unsetAlias}"
         else:
-            case unsetType:
-                of "source":
-                    fail fmt "Unable to update after unsetting source, no files written"
-                    info fmt "> Repository: {repository.url}"
-                    info fmt "> Source Alias: {unsetAlias}"
-
-                of "package":
-                    fail fmt "Unable to update after unsetting package, no files written"
-                    info fmt "> Repository: {repository.url}"
-                    info fmt "> Package Alias: {unsetAlias}"
+            fail fmt "Unable to update after unsetting {unsetType}, no files written"
+            info fmt "> Repository: {repository.url}"
+            info fmt "> Alias: {unsetAlias}"
+            result = 10 + result
 
 shape UnsetCommand: @[
     Command(
