@@ -7,7 +7,7 @@ type
 
 begin FetchCommand:
     #[
-    ##
+
     ]#
     method resolveCommit(repository: Repository, version: Version): Commit {. base .} =
         var
@@ -28,7 +28,7 @@ begin FetchCommand:
         )
 
     #[
-    ##
+
     ]#
     method initializeWorkTree(): int {. base .} =
         let
@@ -42,7 +42,7 @@ begin FetchCommand:
         result = console.run(command)
 
     #[
-    ##
+
     ]#
     method updateWorkTree(): int {. base .} =
         let
@@ -57,7 +57,7 @@ begin FetchCommand:
 
 
     #[
-    ##
+
     ]#
     method buildWorkTree(): HashSet[string] {. base .} =
         var
@@ -101,7 +101,7 @@ begin FetchCommand:
                 result.incl(file.path)
 
     #[
-    ##
+
     ]#
     method execute(console: Console): int =
         result = super.execute(console)
