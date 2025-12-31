@@ -27,7 +27,7 @@ begin FetchCommand:
 
         raise newException(
             ValueError,
-            fmt "cannot find version corresponding to {$verison}"
+            fmt "cannot find corresponding version"
         )
 
     #[
@@ -133,14 +133,14 @@ begin FetchCommand:
             repository = Repository.init(url)
             discard repository.clone()
         except Exception as e:
-            fail fmt "Could Not Fetch From Repository"
+            fail fmt "Could not fetch from repository"
             info fmt "> Error: {e.msg}"
             return 1
 
         try:
             commit = this.resolveCommit(repository, ver(version))
         except Exception as e:
-            fail fmt "Could Not Fetch Requested Version"
+            fail fmt "Could not fetch request version"
             info fmt "> Error: {e.msg}"
             info fmt "> Version: {version}"
             return 2
