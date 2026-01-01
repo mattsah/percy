@@ -125,7 +125,8 @@ begin DepGraph:
                             return v >= ver(constraint[2..^1])
                         elif constraint.startsWith("<="):
                             return v <= ver(constraint[2..^1])
-                        elif constraint.startsWith("="): # handle single equals
+                        elif constraint.startsWith("="):
+                            # TODO: Should throw some kind of warning
                             return v == ver(constraint[1..^1])
                         elif constraint.startsWith("<"):
                             return v < ver(constraint[1..^1])
@@ -146,6 +147,7 @@ begin DepGraph:
                                 let
                                     now =
                                         if constraint[1] == '=':
+                                            # TODO: Should throw some kind of warning
                                             ver(constraint[2..^1])
                                         else:
                                             ver(constraint[1..^1])
@@ -167,7 +169,8 @@ begin DepGraph:
                                         )
                                     return v >= now and v < next
                                 else:
-                                    discard
+                                    # TODO: Should throw some kind of warning
+                                    return v == ver(constraint)
                     except:
                         discard
 

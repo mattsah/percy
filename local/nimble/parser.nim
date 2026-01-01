@@ -1,6 +1,7 @@
 #[
     A structured nimble file parser and mapper which tries to extract data and leave the file
-    as untouched as possible.  This may look hacky, but it's effective.
+    as untouched as possible.  This is hacky, but effective.  It should be noted that this approach
+    parses invalid files and does not throw any warnings.
 
     NOTE:  This file hs been left intentionally in non-mininm style Nim so that it's easier for
     other package managers like neo to use it in their own solution.  This could be its own

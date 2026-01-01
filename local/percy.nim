@@ -110,17 +110,19 @@ proc ver*(version: string): Version =
             verParts = lowered.split('.')
             newVersion = verParts[0].replace(re"[^0-9]", "") & "." & verParts[1]
             thirdDigit: int
+            tail: string
 
         if verParts.len > 2:
             if parseInt(verParts[2], thirdDigit) == verParts[2].len:
                 newVersion = newVersion & "." & $thirdDigit
                 if verParts.len > 3:
-                    newVersion = newVersion & "-" & cleaned.split('-')[3..^1].join("-")
+                    tail =  "-" & cleaned.split('-')[3..^1].join("-")
             else:
-                newVersion = newVersion & ".0-" & cleaned.split('-')[2..^1].join("-")
+                newVersion = newVersion & ".0"
+                tail = "-" & cleaned.split('-')[2..^1].join("-")
         else:
             newVersion = newVersion & ".0"
 
-        return v(newVersion)
+        return v(newVersion.split('.').mapIt($parseInt(it)).join('.') & tail)
 
     return v("0.0.0-branch." & cleaned)
