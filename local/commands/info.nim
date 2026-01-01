@@ -87,7 +87,7 @@ begin InfoCommand:
 shape InfoCommand: @[
     Command(
         name: "info",
-        description: "Get useful information about this package",
+        description: "Get useful information about the project in the current directory",
         args: @[
             Arg(
                 name: "type",

@@ -20,7 +20,7 @@ export
 const
     params = {
         "strings": @[
-            "name", "version", "author", "description",
+            "name", "author", "description",
             "license", "backend", "binDir", "srcDir"
         ],
         "arrays": @[
@@ -43,23 +43,50 @@ proc parse*(source: string, map: var string): NimbleFileInfo =
         indenting: string = ""
         current = -1
 
+    proc clean(value: string, breakCommas: bool = false): string =
+        var
+            inString = false
+        #
+        # Fix comments and other abnormalities
+        #
+        for pos, i in value:
+            if i == '"':
+                if inString:
+                    inString = false
+                else:
+                    inString = true
+            elif i == ',':
+                if inString and breakCommas:
+                    result.add("""", """")
+                    continue
+            elif i == '#':
+                if not inString:
+                    break
+            result.add(i)
+
     proc parseUntil(value: var string, closing: char): void =
         while current < sourceLines.high:
             let
                 rclose = value.rfind(closing)
-            if rclose >= 0:
+            if rclose > 0:
                 value = value[0..rclose]
                 break
             else:
                 inc current
-                value = value & sourceLines[current].strip()
+                value = value & sourceLines[current].clean().strip()
 
     proc parseEqString(line: string): JsonNode =
         var
-            value = line.split('=', 1)[1].strip()
+            value = line.split('=', 1)[1].clean().strip()
         try:
-            if value.len > 0 and value[0] == '"':
-                return parseJson(value[0..value.rfind('"')])
+            if value.len > 0:
+                if value.startsWith("\"\""):
+                    value = value[0..value.rfind('"')].strip(chars = {'"'}).escape()
+                elif value[0] == '"':
+                    value = value[0..value.rfind('"')]
+                else:
+                    value = '"' & value.escape() & '"'
+                return parseJson(value)
             else:
                 return newJNull()
         except:
@@ -71,17 +98,14 @@ proc parse*(source: string, map: var string): NimbleFileInfo =
         var
             value = line.split('=', 1)[1].strip()
 
-        parseUntil(value, ']')
-
         try:
             if value.len > 0:
                 case value[0]:
-                    of '[':
-                        return parseJson(value)
-                    of '@':
-                        return parseJson(value[1..^1])
+                    of '[', '@':
+                        parseUntil(value, ']')
+                        return parseJson(value.strip(chars = {'@'}))
                     of '"':
-                        return parseJson("[" & value & "]")
+                        return parseJson("[" & $parseEqString(" = " & value) & "]")
                     else:
                         discard
             else:
@@ -176,25 +200,9 @@ proc parse*(source: string, map: var string): NimbleFileInfo =
     map = mapLines.join("\n").strip()
 
     for linereqs in requires:
-        var
-            cleaned = linereqs
+        let
+            cleaned = linereqs.clean(breakCommas = true)
         try:
-            var
-                inString = false
-            #
-            # Fix comments and other abnormalities
-            #
-            for pos, i in linereqs:
-                if i == '"':
-                    if inString:
-                        inString = false
-                    else:
-                        inString = true
-                elif i == '#':
-                    if not inString:
-                        cleaned = linereqs[0..pos - 1]
-                        break
-
             info["requires"].add(parseJson("[" & cleaned & "]"))
         except:
             raise newException(

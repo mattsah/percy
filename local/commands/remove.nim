@@ -119,7 +119,7 @@ begin RemoveCommand:
 shape RemoveCommand: @[
     Command(
         name: "remove",
-        description: "Remove a package from your project's dependencies",
+        description: "Remove a dependency from the project in the current directory",
         args: @[
             Arg(
                 name: "package",

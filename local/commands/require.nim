@@ -89,7 +89,7 @@ begin RequireCommand:
 shape RequireCommand: @[
     Command(
         name: "require",
-        description: "Add a requirement to the project",
+        description: "Add a dependency for the project in the current directory",
         args: @[
             Arg(
                 name: "package",

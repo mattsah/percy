@@ -249,7 +249,7 @@ begin InitCommand:
 shape InitCommand: @[
     Command(
         name: "init",
-        description: "Initialize a project or package",
+        description: "Initialize a project from a url or in the current directory",
         args: @[
             Arg(
                 name: "url",

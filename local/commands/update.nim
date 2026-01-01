@@ -26,7 +26,7 @@ begin UpdateCommand:
 shape UpdateCommand: @[
     Command(
         name: "update",
-        description: "Update package(s) and write the lock file",
+        description: "Update a project's dependencies and write a new lock file",
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,

@@ -198,7 +198,7 @@ begin FetchCommand:
 shape FetchCommand: @[
     Command(
         name: "fetch",
-        description: "Download, install, and build applications",
+        description: "Download and build applications from a remote repository URL",
         args: @[
             Arg(
                 name: "url",
@@ -214,15 +214,25 @@ shape FetchCommand: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
             Opt(
-                flag: 'k',
-                name: "keep",
-                description: "Keep existing versions for faster switching"
-            ),
-            Opt(
                 flag: 'b',
                 name: "bin-directory",
                 default: "~/.local/bin",
                 description: "Change where the binary links are stored"
+            ),
+            Opt(
+                flag: 'n',
+                name: "newest",
+                description: "Ensure the version being fetched is fully up-to-date"
+            ),
+            Opt(
+                flag: 'k',
+                name: "keep",
+                description: "Keep other versions for faster switching"
+            ),
+            Opt(
+                flag: 'd',
+                name: "delete",
+                description: "Delete all builds or a specific version of a build"
             )
         ]
     )

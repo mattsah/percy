@@ -125,6 +125,8 @@ begin DepGraph:
                             return v >= ver(constraint[2..^1])
                         elif constraint.startsWith("<="):
                             return v <= ver(constraint[2..^1])
+                        elif constraint.startsWith("="): # handle single equals
+                            return v == ver(constraint[1..^1])
                         elif constraint.startsWith("<"):
                             return v < ver(constraint[1..^1])
                         elif constraint[0] == '>':
@@ -142,7 +144,12 @@ begin DepGraph:
                                 return v == version
                             else:
                                 let
-                                    now = ver(constraint[1..^1])
+                                    now =
+                                        if constraint[1] == '=':
+                                            ver(constraint[2..^1])
+                                        else:
+                                            ver(constraint[1..^1])
+
                                 if constraint[0] == '~':
                                     let
                                         next = Version(
@@ -319,7 +326,7 @@ begin DepGraph:
                 print fmt "Graph: Adding Repository (Scanning Available Tags)"
                 print fmt "> URL: {repository.url}"
 
-            if this.newest:
+            if not repository.cacheExists or this.newest:
                 discard repository.update(quiet = this.quiet, force = true)
 
             this.commits[repository] = repository.getCommits()
@@ -338,10 +345,11 @@ begin DepGraph:
     method addRequirement*(commit: Commit, requirement: Requirement, depth: int): void {. base .} =
         if requirement.package.toLower() == "nim":
             if not this.checkConstraint(requirement, Commit(version: ver(NimVersion))):
-                raise newException(
-                    ValueError,
-                    fmt "current Nim version '{NimVersion}' does not meet `{requirement.versions}`"
-                )
+                if depth == 0:
+                    raise newException(
+                        ValueError,
+                        fmt "current Nim version '{NimVersion}' does not meet `{requirement.versions}`"
+                    )
         else:
             let
                 key = (commit.repository, commit.version)

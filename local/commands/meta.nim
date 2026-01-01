@@ -97,7 +97,7 @@ begin MetaCommand:
 shape MetaCommand: @[
     Command(
         name: "meta",
-        description: "Get or set meta data",
+        description: "Get or set meta data for the project in the current directory",
         args: @[
             Arg(
                 name: "action",

@@ -47,7 +47,7 @@ begin InstallCommand:
 shape InstallCommand: @[
     Command(
         name: "install",
-        description: "Install all dependencies (use lock file if exists)",
+        description: "Install locked dependencies for the project in the current directory",
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,

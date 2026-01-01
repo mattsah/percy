@@ -47,8 +47,9 @@ begin UnsetCommand:
             info fmt "> Alias: {unsetAlias}"
             return 1
 
+        this.settings.prepare(force = true, save = false)
+
         if not skip:
-            this.settings.prepare(force = true, save = true)
             result = this.resolve()
 
         if result == 0:
@@ -65,7 +66,7 @@ begin UnsetCommand:
 shape UnsetCommand: @[
     Command(
         name: "unset",
-        description: "Unset a source or package URL",
+        description: "Unset a source or package for the project in the current directory",
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,

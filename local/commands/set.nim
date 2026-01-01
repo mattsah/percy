@@ -61,8 +61,9 @@ begin SetCommand:
             info fmt "> URL: {setUrl}"
             return 2
 
+        this.settings.prepare(force = true, save = false)
+
         if not skip:
-            this.settings.prepare(force = true, save = true)
             result = this.resolve()
 
         if result == 0:
@@ -79,7 +80,7 @@ begin SetCommand:
 shape SetCommand: @[
     Command(
         name: "set",
-        description: "Set a source or package URL",
+        description: "Set a source or package URL for the project in the current directory",
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
