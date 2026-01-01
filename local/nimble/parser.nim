@@ -85,7 +85,7 @@ proc parse*(source: string, map: var string): NimbleFileInfo =
                 elif value[0] == '"':
                     value = value[0..value.rfind('"')]
                 else:
-                    value = '"' & value.escape() & '"'
+                    value = value.escape()
                 return parseJson(value)
             else:
                 return newJNull()

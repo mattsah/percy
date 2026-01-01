@@ -175,9 +175,13 @@ begin Settings:
             var
                 remove = newSeq[string]()
             for alias, name in aliases:
-                if resolved.hasKey(name):
+                if resolved.hasKey(alias):
+                    remove.add(alias)
+                elif resolved.hasKey(name):
                     pairs.add((alias, resolved[name]))
                     remove.add(alias)
+                else:
+                    discard
             if remove.len == 0:
                 raise newException(ValueError, "Unresolvable aliases found")
             for alias in remove:
