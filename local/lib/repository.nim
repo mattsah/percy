@@ -38,7 +38,6 @@ type
         path*: string
 
     Checkout* = ref object of Class
-        repository*: Repository
         commit*: Commit
         path*: string
 

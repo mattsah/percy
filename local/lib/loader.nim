@@ -60,6 +60,24 @@ begin Loader:
             if fileExists(mapFile):
                 removeFile(mapFile)
 
+    method getRepository(targetDir: string): Option[Repository] {. base .} =
+        var
+            error: int
+            output: string
+
+        percy.execIn(
+            ExecHook as (
+                block:
+                    error = percy.execCmdCapture(output, @[
+                        fmt "git remote get-url origin"
+                    ])
+            ),
+            targetDir
+        )
+
+        if error == 0:
+            result = some(this.settings.getRepository(output.strip()))
+
     method getMappedPaths(targetDir: string): OrderedTable[string, string] {. base .} =
         let
             percyFile = targetDir / fmt "{percy.name}.json"
@@ -325,7 +343,7 @@ begin Loader:
         updateDirs = updateDirs.toSeq().sortedByIt(it.len).reversed().toOrderedSet()
         createDirs = createDirs.toSeq().sortedByIt(it.len).reversed().toOrderedSet()
 
-        let # optimized
+        let
             hasDeleteDirs = deleteDirs.len > 0
             hasUpdateDirs = updateDirs.len > 0
             hasCreateDirs = createDirs.len > 0
@@ -356,23 +374,10 @@ begin Loader:
             this.openMapFile()
 
         for deleteDir in deleteDirs:
-            percy.execIn(
-                ExecHook as (
-                    block:
-                        error = percy.execCmdCapture(output, @[
-                            fmt "git remote get-url origin"
-                        ])
-                ),
-                deleteDir
-            )
-
-            if error == 0:
-                let
-                    repository = this.settings.getRepository(output.strip())
-
-                if not preserve:
-                    this.removeMappedPaths(repository, deleteDir, true)
-
+            let
+                repository = this.getRepository(deleteDir)
+            if not preserve and isSome(repository):
+                this.removeMappedPaths(repository.get(), deleteDir, true)
             removeDir(deleteDir)
 
         for commit in solution:
@@ -382,10 +387,13 @@ begin Loader:
                 commitHash = commit.id
 
             if updateDirs.contains(targetDir):
+                let
+                    repository = this.getRepository(targetDir)
+
                 percy.execIn(
                     ExecHook as (
                         block:
-                            error = percy.execCmd(@[
+                            error = percy.execCmdCapture(output, @[
                                 fmt "git checkout -q --detach {commitHash}"
                             ])
                     ),
@@ -393,8 +401,14 @@ begin Loader:
                 )
 
                 if not preserve:
-                    this.removeMappedPaths(commit.repository, targetDir)
+                    if isSome(repository):
+                        this.removeMappedPaths(repository.get(), targetDir)
                     this.createMappedPaths(commit.repository, targetDir)
+
+                result.add(Checkout(
+                    commit: commit,
+                    path: targetDir
+                ))
 
             elif createDirs.contains(targetDir):
                 error = commit.repository.exec(
@@ -407,15 +421,32 @@ begin Loader:
                 if not preserve:
                     this.createMappedPaths(commit.repository, targetDir)
 
+                result.add(Checkout(
+                    commit: commit,
+                    path: targetDir
+                ))
+
             else:
                 discard
 
-            if commit.info.srcDir.len > 0: # optimized
+            if commit.info.srcDir.len > 0:
                 pathList.add(fmt "{percy.target / workDir / commit.info.srcDir}")
             else:
                 pathList.add(fmt "{percy.target / workDir}")
 
         if not preserve:
             this.writeMapFile()
+
+        for checkout in result:
+            percy.execIn(
+                ExecHook as (
+                    block:
+                        if fileExists(".gitmodules"):
+                            error = percy.execCmdCapture(output, @[
+                                fmt "git submodule update --init --recursive"
+                            ])
+                ),
+                checkout.path
+            )
 
         writeFile(fmt "vendor/{percy.name}.paths", pathList.join("\n"))
