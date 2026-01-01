@@ -9,7 +9,7 @@ begin FetchCommand:
     #[
 
     ]#
-    method resolveCommit(repository: Repository, version: Version): Commit {. base .} =
+    method resolveCommit(repository: Repository, version: Version, update: bool = true): Commit {. base .} =
         var
             candidate: Option[Commit]
 
@@ -22,14 +22,14 @@ begin FetchCommand:
                 if version == candidate.version:
                     return candidate
 
-        discard repository.update(quiet = this.verbosity < 1, force = true)
-        result = this.resolveCommit(repository, version)
+        if update:
+            discard repository.update(quiet = this.verbosity < 1, force = true)
+            return this.resolveCommit(repository, version, false)
 
-        if not result.id:
-            raise newException(
-                ValueError,
-                fmt "cannot find corresponding version"
-            )
+        raise newException(
+            ValueError,
+            fmt "cannot find corresponding version"
+        )
 
     #[
 
