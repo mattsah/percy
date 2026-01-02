@@ -9,8 +9,12 @@ export
     semver
 
 type
-    MissingRepositoryException* = ref object of CatchableError
-        repository*: Repository
+    InvalidNimVersionException* = ref object of CatchableError
+        current*: string
+        requirement*: Requirement
+
+    EmptyCommitPoolException* = ref object of CatchableError
+        requirement*: Requirement
 
     ConstraintHook* = proc(v: Version): bool
 
@@ -52,10 +56,19 @@ type
         backtrackCount*: int
         timeTaken*: float
 
+#[
+
+]#
 begin Constraint:
     discard
 
+#[
+
+]#
 begin AllConstraint:
+    #[
+
+    ]#
     proc init*(items: seq[Constraint]): void =
         this.check = ConstraintHook as (
             block:
@@ -65,7 +78,13 @@ begin AllConstraint:
                         return false
         )
 
+#[
+
+]#
 begin AnyConstraint:
+    #[
+
+    ]#
     proc init*(items: seq[Constraint]): void =
         this.check = ConstraintHook as (
             block:
@@ -75,27 +94,39 @@ begin AnyConstraint:
                         return true
         )
 
+#[
+
+]#
 begin Requirement:
+    #[
+
+    ]#
     proc `$`*(): string =
         if this.versions.toLower() == "any":
             result = this.package
         else:
             result = fmt "{this.package} {this.versions}"
 
+    #[
+
+    ]#
     method repository*(): Repository {. base .} =
         result = this.repository
 
+#[
+
+]#
 begin DepGraph:
     method stack*(): seq[Requirement] {. base .} =
         result = this.stack
 
     #[
-    ##
+
     ]#
-    method addRequirement*(commit: Commit, requirement: Requirement, depth: int): void {. base .}
+    method addRequirement*(parent: Commit, requirement: Requirement, depth: int): void {. base .}
 
     #[
-    ##
+
     ]#
     method init*(settings: Settings, quiet: bool = true): void {. base .} =
         this.quiet    = quiet
@@ -110,7 +141,7 @@ begin DepGraph:
             result = false
 
     #[
-    ##
+
     ]#
     method parseConstraint*(constraint: string, repository: Repository): Constraint {. base .} =
         return Constraint(
@@ -181,9 +212,8 @@ begin DepGraph:
             )
         )
 
-
     #[
-    ##
+
     ]#
     method parseRequirement*(requirement: string): Requirement {. base .} =
         # Something like:
@@ -251,7 +281,7 @@ begin DepGraph:
         )
 
     #[
-    ##
+
     ]#
     method reportStack*(): void {. base .} =
         print fmt "Graph: Package Stack Report"
@@ -262,7 +292,7 @@ begin DepGraph:
             print fmt """{requirement.package} {requirement.versions}"""
 
     #[
-    ##
+
     ]#
     method report*(): void {. base .} =
         print "Graph: Completed With Usable Versions"
@@ -273,142 +303,158 @@ begin DepGraph:
                 print fmt "     {fg.green}{commit.version}{fg.stop}"
 
     #[
-    ##
+
     ]#
     method resolve*(commit: Commit, depth: int): void {. base .} =
         let
             key = (commit.repository, commit.version)
 
-        if not this.requirements.hasKey(key):
-            if not this.quiet:
-                print fmt "Graph: Resolving Nimble File"
-                print fmt "> Source: {commit.repository.url} @ {commit.version}"
+        this.requirements[key] = newSeq[Requirement]()
 
-            this.tracking[commit.repository].incl(commit)
+        if not this.quiet:
+            print fmt "Graph: Resolving Nimble File"
+            print fmt "> Source: {commit.repository.url} @ {commit.version}"
 
-            this.requirements[key] = newSeq[Requirement]()
-
+        try:
             for file in commit.repository.listDir("/", commit.id):
                 if file.endsWith(".nimble"):
-                    try:
                         let
                             contents = commit.repository.readFile(file, commit.id)
                         when debugging(3):
                             print fmt "Graph: Parsing nimble contents"
-                            print fmt "> URL: {commit.repository.url}"
+                            print fmt "> Repository URL: {commit.repository.url}"
+                            print fmt "> Repository Hash: {commit.repository.shaHash}"
                             print fmt "> Commit: {commit.version} ({commit.id})"
                             print indent(contents, 4)
-                        commit.info = parser.parse(contents)
-                    except:
-                        print fmt "Graph: Failed parsing nimble file {file}"
-                        print fmt "> URL: {commit.repository.url}"
-                        print fmt "> Commit: {commit.version} ({commit.id})"
-                        print fmt "> Error: {getCurrentExceptionMsg()}"
-                        quit(1)
 
-                    for requirements in commit.info.requires:
-                        for requirement in requirements:
-                            this.addRequirement(commit, this.parseRequirement(requirement), depth + 1)
-                    break
+                        commit.info = parser.parse(contents)
+                        break
+
+            for requirements in commit.info.requires:
+                for requirement in requirements:
+                    this.addRequirement(commit, this.parseRequirement(requirement), depth + 1)
+
+            if not this.tracking.hasKey(commit.repository):
+                this.tracking[commit.repository] = initOrderedSet[Commit]()
+
+            this.tracking[commit.repository].incl(commit)
+
+        except Exception as e:
+            this.commits[commit.repository].excl(commit)
+
+            with e of InvalidNimVersionException:
+                warn  fmt "Graph: Excluding Commit ({e.msg})"
+                print fmt "> Requirement: Nim @ {e.requirement.versions}"
+                print fmt "> Current Version: {e.current}"
+            with e of EmptyCommitPoolException:
+                warn  fmt "Graph: Excluding Commit ({e.msg})"
+                print fmt "> Requirement: {e.requirement.package} @ {e.requirement.versions}"
+            with e of ValueError:
+                warn  fmt "Graph: Excluding Commit (Failed Resolving Nimble File)"
+                print fmt "> Error: {e.msg}"
+
+            print fmt "> Commit Repository URL: {commit.repository.url}"
+            print fmt "> Commit Repository Hash: {commit.repository.shaHash}"
+            print fmt "> Commit Version: {commit.version}"
+            print fmt "> Commit Hash: {commit.id}"
 
     #[
-    ##
+
     ]#
-    method addRepository*(requirement: Requirement): void {. base .} =
-        let
-            repository = requirement.repository
+    method expandCommits*(requirement: Requirement): void {. base .} =
+        if not this.commits.hasKey(requirement.repository):
+            if requirement.repository.exists:
+                if not this.quiet:
+                    print fmt "Graph: Adding Repository (Scanning Available Tags)"
+                    print fmt "> Repository URL: {requirement.repository.url}"
+                    print fmt "> Repository Hash: {requirement.repository.shaHash}"
 
-        if not this.commits.hasKey(repository):
-            if not repository.exists:
-                raise MissingRepositoryException(
-                    msg: fmt "required package '{requirement.package}' does not seem to exist",
-                    repository: repository
-                )
+                # TODO: Remove condition
+                if not requirement.repository.cacheExists or this.newest:
+                    discard requirement.repository.update(quiet = this.quiet, force = true)
 
-            if not this.quiet:
-                print fmt "Graph: Adding Repository (Scanning Available Tags)"
-                print fmt "> URL: {repository.url}"
+                this.commits[requirement.repository] = requirement.repository.getCommits()
+            else:
+                warn  fmt "Graph: Failed Adding Repository (Cannot Connect)"
+                print fmt "> Repository URL: {requirement.repository.url}"
+                print fmt "> Repository Hash: {requirement.repository.shaHash}"
 
-            if not repository.cacheExists or this.newest:
-                discard repository.update(quiet = this.quiet, force = true)
+                this.commits[requirement.repository] = initOrderedSet[Commit](0)
 
-            this.commits[repository] = repository.getCommits()
-
-        if requirement.commits.len > 0:
+        if requirement.repository.cacheExists and requirement.commits.len > 0:
             for id in requirement.commits:
                 let
-                    commit = repository.getCommit(id)
+                    commit = requirement.repository.getCommit(id)
 
                 if isSome(commit):
-                    this.commits[repository].incl(commit.get())
+                    this.commits[requirement.repository].incl(commit.get())
+
 
     #[
-    ##
+
     ]#
-    method addRequirement*(commit: Commit, requirement: Requirement, depth: int): void {. base .} =
+    method addRequirement*(parent: Commit, requirement: Requirement, depth: int): void {. base .} =
         if requirement.package.toLower() == "nim":
             if not this.checkConstraint(requirement, Commit(version: ver(NimVersion))):
-                if depth == 0:
-                    raise newException(
-                        ValueError,
-                        fmt "current Nim version '{NimVersion}' does not meet `{requirement.versions}`"
-                    )
+                raise InvalidNimVersionException(
+                    msg: fmt "Unmet Nim Version Requirement",
+                    current: NimVersion,
+                    requirement: requirement
+                )
         else:
             let
-                key = (commit.repository, commit.version)
+                key = (parent.repository, parent.version)
 
             this.stack.add(requirement)
+            this.expandCommits(requirement)
 
-            if not this.quiet:
-                print fmt "Graph: Adding Requirement"
-                print fmt "> Dependent: {commit.repository.url} @ {commit.version}"
-                print fmt "> Dependency: {requirement.repository.url} @ {requirement.versions}"
-
-            this.addRepository(requirement)
-
-            var
-                toResolve = HashSet[Commit]()
-
-            if depth == 0:
-                var
-                    toRemove = HashSet[Commit]()
-
-                for commit in this.commits[requirement.repository]:
-                    if not this.checkConstraint(requirement, commit):
-                        toRemove.incl(commit)
-                    else:
-                        toResolve.incl(commit)
-
-                for commit in toRemove:
-                    if not this.quiet:
-                        print fmt "Graph: Excluding Commit (Not Usable At Top-Level)"
-                        print fmt "> URL: {commit.repository.url}"
-                        print fmt "> Version: {commit.version}"
-                    this.commits[commit.repository].excl(commit)
+            if this.commits[requirement.repository].len == 0:
+                raise EmptyCommitPoolException(
+                    msg: fmt "Requirement Has No Available Commits",
+                    requirement: requirement
+                )
             else:
+                var
+                    toResolve = HashSet[Commit]()
+                    toRemove = Table[Commit, string]()
+
                 for commit in this.commits[requirement.repository]:
-                    if this.checkConstraint(requirement, commit):
-                        toResolve.incl(commit)
+                    let
+                        key = (commit.repository, commit.version)
 
-            this.requirements[key].add(requirement)
+                    if not this.requirements.hasKey(key):
+                        if depth == 0:
+                            if not this.checkConstraint(requirement, commit):
+                                toRemove[commit] = "Not Usable At Top-Level"
+                            else:
+                                toResolve.incl(commit)
+                        else:
+                            if this.checkConstraint(requirement, commit):
+                                toResolve.incl(commit)
 
-            for commit in toResolve:
-                if not this.tracking.hasKey(commit.repository):
-                    this.tracking[commit.repository] = initOrderedSet[Commit]()
-
-                if not this.tracking[commit.repository].contains(commit):
-                    this.resolve(commit, depth)
-                else:
+                for commit, reason in toRemove:
+                    this.commits[commit.repository].excl(commit)
                     if not this.quiet:
-                        print fmt "Graph: Skipping Resolution (Already Resolved)"
-                        print fmt "> URL: {commit.repository.url}"
-                        print fmt "> Version: {commit.version}"
+                        warn  fmt "Graph: Excluding Commit ({reason})"
+                        print fmt "> Repository URL: {commit.repository.url}"
+                        print fmt "> Repository Hash: {commit.repository.shaHash}"
+                        print fmt "> Commit Version: {commit.version}"
+                        print fmt "> Commit Hash: {commit.id}"
+
+                for commit in toResolve:
+                    this.resolve(commit, depth)
+
+                if not this.quiet:
+                    print fmt "Graph: Adding Requirement"
+                    print fmt "> Dependent: {parent.repository.url} @ {parent.version}"
+                    print fmt "> Dependency: {requirement.repository.url} @ {requirement.versions}"
+
+                this.requirements[key].add(requirement)
 
             discard this.stack.pop()
 
-
     #[
-    ##
+
     ]#
     method build*(nimbleInfo: NimbleFileInfo, newest: bool = false): void {. base .} =
         let
@@ -462,19 +508,19 @@ begin DepGraph:
                     Descending
                 )
                 .toOrderedSet()
+
 #[
-##
+
 ]#
 begin Solver:
-
     #[
-    ##
+
     ]#
     method init*(): void {. base .} =
         discard
 
     #[
-    ##
+
     ]#
     method solve*(graph: DepGraph): SolverResults {. base .} =
         var
@@ -582,6 +628,12 @@ begin Solver:
                 # 2. Backtracked one level up and removed the current assignment from candidates.
                 break
 
+#[
+
+]#
 begin SolverResults:
+    #[
+
+    ]#
     method isEmpty*(): bool {. base .} =
         result = isNone(this.solution)

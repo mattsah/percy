@@ -105,24 +105,28 @@ proc ver*(version: string): Version =
         return v("0.0.0-branch." & cleaned[5..^1])
     if lowered.len >= 4 and lowered.len <= 40 and lowered.match(re"^[a-f0-9]+$"): # implicit commit
         return v("0.0.0-commit." & lowered)
-    if lowered.match(re"^(v?)[0-9]+\.[0-9]+.*"): # implicit version tag
+    if lowered.match(re"^v?[0-9]+\.[0-9]+(\.[0-9]+)?.*"): # implicit version tag
         var
-            verParts = lowered.split('.')
-            newVersion = verParts[0].replace(re"[^0-9]", "") & "." & verParts[1]
-            thirdDigit: int
-            tail: string
+            dotCount = 0
+            versionTail: string
+            versionClean: string
+            versionParts: seq[string]
 
-        if verParts.len > 2:
-            if parseInt(verParts[2], thirdDigit) == verParts[2].len:
-                newVersion = newVersion & "." & $thirdDigit
-                if verParts.len > 3:
-                    tail =  "-" & cleaned.split('-')[3..^1].join("-")
+        for i in lowered:
+            if i == '.':
+                inc dotCount
+            if i in {'0'..'9', 'v', '.'} and dotCount < 3:
+                versionClean.add(i)
             else:
-                newVersion = newVersion & ".0"
-                tail = "-" & cleaned.split('-')[2..^1].join("-")
-        else:
-            newVersion = newVersion & ".0"
+                break
 
-        return v(newVersion.split('.').mapIt($parseInt(it)).join('.') & tail)
+        versionParts = versionClean.strip(chars = {'v', '.'}).split('.', 2)
+
+        if versionParts.len < 3:
+            versionParts.add("0")
+        if cleaned.len > versionClean.len:
+            versionTail = "-" & cleaned[versionClean.len..^1].strip("-")
+
+        return v(versionParts.mapIt($parseInt(it)).join('.') & versionTail)
 
     return v("0.0.0-branch." & cleaned)
