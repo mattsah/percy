@@ -174,12 +174,21 @@ begin FetchCommand:
             if error != 0:
                 fail fmt "Could Not Create Build Worktree"
                 return 3
+
+            setCurrentDir(targetDir)
         else:
-            # Check if actual commit has changed and re-checkout if needed
+            setCurrentDir(targetDir)
+
+            error = percy.execCmdCaptureAll(output, @[
+                fmt "git checkout -d {commit.id}",
+            ])
+
+            if error != 0:
+                fail fmt "Could Not Update Build Worktree"
+                return 3
             discard
 
         discard repository.prune()
-        setCurrentDir(targetDir)
 
         error = this.initializeWorkTree()
 
