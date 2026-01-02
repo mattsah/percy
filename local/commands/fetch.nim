@@ -163,6 +163,8 @@ begin FetchCommand:
                 if dir.path != targetDir:
                     removeDir(dir.path)
 
+        discard repository.prune()
+
         if not dirExists(targetDir):
             error = repository.exec(
                 @[
@@ -173,6 +175,7 @@ begin FetchCommand:
 
             if error != 0:
                 fail fmt "Could Not Create Build Worktree"
+                info fmt "> Error: {output}"
                 return 3
 
             setCurrentDir(targetDir)
@@ -186,9 +189,7 @@ begin FetchCommand:
             if error != 0:
                 fail fmt "Could Not Update Build Worktree"
                 return 3
-            discard
 
-        discard repository.prune()
 
         error = this.initializeWorkTree()
 
