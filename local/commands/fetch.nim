@@ -6,6 +6,9 @@ import
 type
     FetchCommand = ref object of BaseCommand
 
+#[
+
+]#
 begin FetchCommand:
     #[
 
