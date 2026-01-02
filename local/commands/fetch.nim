@@ -1,6 +1,7 @@
 import
     percy,
-    basecli
+    basecli,
+    pkg/checksums/sha1
 
 type
     FetchCommand = ref object of BaseCommand
@@ -48,11 +49,14 @@ begin FetchCommand:
     #[
 
     ]#
-    method updateWorkTree(): int {. base .} =
+    method updateWorkTree(newest: bool = false): int {. base .} =
         let
             console = this.app.get(Console, false)
         var
-            command = @["update", "-n", "-p"]
+            command = @["update", "-p"]
+
+        if newest:
+            command.add("-n")
 
         if this.verbosity:
             command.add("-v:" & $this.verbosity)
@@ -63,7 +67,7 @@ begin FetchCommand:
     #[
 
     ]#
-    method buildWorkTree(): HashSet[string] {. base .} =
+    method buildWorkTree(newest: bool = false): HashSet[string] {. base .} =
         var
             error: int
             output: string
@@ -71,6 +75,7 @@ begin FetchCommand:
             nimbleInfo: NimbleFileInfo
             buildNode: JsonNode
             buildCmd = "nim build"
+            buildDo = newest
 
         if fileExists(fmt "{percy.name}.json"):
             targetConfig = parseFile(fmt "{percy.name}.json")
@@ -84,6 +89,15 @@ begin FetchCommand:
                 nimbleInfo = parser.parse(readFile(file.path))
                 break
 
+        for file in nimbleInfo.bin:
+            let
+                filePath = absolutePath(getCurrentDir() / nimbleInfo.binDir) / file
+
+            result.incl(filePath)
+
+            if not fileExists(filePath):
+                buildDo = true
+
         (output, error) = execCmdEx(buildCmd)
 
         if this.verbosity > 0:
@@ -94,12 +108,6 @@ begin FetchCommand:
                 ValueError,
                 fmt "failed executing `{buildCmd}` with error ({error})"
             )
-
-        for file in nimbleInfo.bin:
-            let
-                filePath = absolutePath(nimbleInfo.binDir) / file
-            if fileExists(filePath):
-                result.incl(filePath)
 
     #[
 
@@ -113,6 +121,7 @@ begin FetchCommand:
             url = console.getArg("url")
             version = console.getArg("version")
             binDir = absolutePath(console.getOpt("bin-directory").expandTilde())
+            newest = parseBool(console.getOpt("newest"))
             keep = parseBool(console.getOpt("keep"))
         var
             commit: Commit
@@ -165,6 +174,9 @@ begin FetchCommand:
             if error != 0:
                 fail fmt "Could Not Create Build Worktree"
                 return 3
+        else:
+            # Check if actual commit has changed and re-checkout if needed
+            discard
 
         discard repository.prune()
         setCurrentDir(targetDir)
@@ -174,20 +186,37 @@ begin FetchCommand:
         if error != 0:
             return 10 + error
 
-        error = this.updateWorkTree()
+        error = this.updateWorkTree(newest)
 
         if error != 0:
             return 20 + error
 
         try:
             let
-                binFiles = this.buildWorkTree()
+                binFiles = this.buildWorkTree(newest)
 
             for file in binFiles:
                 let
                     linkPath = binDir / file.extractFilename()
+
                 if symlinkExists(linkPath):
-                    removeFile(linkPath)
+                    let
+                        current = expandSymLink(linkPath)
+                    if current == file and secureHashFile(current) == secureHashFile(file):
+                        warn fmt "Existing Binary Link Is Latest"
+                        info fmt "> Path: {linkPath}"
+                        continue
+                    else:
+                        warn fmt "Replacing Existing Binary Link"
+                        info fmt "> Path: {linkPath}"
+                        info fmt "> Current: {current}"
+                        info fmt "> Updated: {file}"
+                        removeFile(linkPath)
+                else:
+                    event fmt "Creating Binary Link"
+                    print fmt "> Path: {linkPath}"
+                    print fmt "> Linked: {file}"
+
                 createSymlink(file, linkPath)
 
         except Exception as e:

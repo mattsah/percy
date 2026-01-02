@@ -346,20 +346,20 @@ begin DepGraph:
             with e of AddRequirementException:
                 discard this.stack.pop()
                 with e of InvalidNimVersionException:
-                    warn  fmt "Graph: Excluding Commit ({e.msg})"
-                    print fmt "> Requirement: Nim @ {e.requirement.versions}"
-                    print fmt "> Current Version: {e.current}"
+                    warn fmt "Graph: Excluding Commit ({e.msg})"
+                    info fmt "> Requirement: Nim @ {e.requirement.versions}"
+                    info fmt "> Current Version: {e.current}"
                 with e of EmptyCommitPoolException:
-                    warn  fmt "Graph: Excluding Commit ({e.msg})"
-                    print fmt "> Requirement: {e.requirement.package} @ {e.requirement.versions}"
+                    warn fmt "Graph: Excluding Commit ({e.msg})"
+                    info fmt "> Requirement: {e.requirement.package} @ {e.requirement.versions}"
             with e of ValueError:
-                warn  fmt "Graph: Excluding Commit (Failed Resolving Nimble File)"
-                print fmt "> Error: {e.msg}"
+                warn fmt "Graph: Excluding Commit (Failed Resolving Nimble File)"
+                info fmt "> Error: {e.msg}"
 
-            print fmt "> Commit Repository URL: {commit.repository.url}"
-            print fmt "> Commit Repository Hash: {commit.repository.shaHash}"
-            print fmt "> Commit Version: {commit.version}"
-            print fmt "> Commit Hash: {commit.id}"
+            info fmt "> Commit Repository URL: {commit.repository.url}"
+            info fmt "> Commit Repository Hash: {commit.repository.shaHash}"
+            info fmt "> Commit Version: {commit.version}"
+            info fmt "> Commit Hash: {commit.id}"
 
     #[
 
@@ -378,9 +378,9 @@ begin DepGraph:
 
                 this.commits[requirement.repository] = requirement.repository.getCommits()
             else:
-                warn  fmt "Graph: Failed Adding Repository (Cannot Connect)"
-                print fmt "> Repository URL: {requirement.repository.url}"
-                print fmt "> Repository Hash: {requirement.repository.shaHash}"
+                warn fmt "Graph: Failed Adding Repository (Cannot Connect)"
+                info fmt "> Repository URL: {requirement.repository.url}"
+                info fmt "> Repository Hash: {requirement.repository.shaHash}"
 
                 this.commits[requirement.repository] = initOrderedSet[Commit](0)
 
@@ -391,7 +391,6 @@ begin DepGraph:
 
                 if isSome(commit):
                     this.commits[requirement.repository].incl(commit.get())
-
 
     #[
 
@@ -439,11 +438,11 @@ begin DepGraph:
                 for commit, reason in toRemove:
                     this.commits[commit.repository].excl(commit)
                     if not this.quiet:
-                        warn  fmt "Graph: Excluding Commit ({reason})"
-                        print fmt "> Repository URL: {commit.repository.url}"
-                        print fmt "> Repository Hash: {commit.repository.shaHash}"
-                        print fmt "> Commit Version: {commit.version}"
-                        print fmt "> Commit Hash: {commit.id}"
+                        warn fmt "Graph: Excluding Commit ({reason})"
+                        info fmt "> Repository URL: {commit.repository.url}"
+                        info fmt "> Repository Hash: {commit.repository.shaHash}"
+                        info fmt "> Commit Version: {commit.version}"
+                        info fmt "> Commit Hash: {commit.id}"
 
                 for commit in toResolve:
                     this.resolve(commit, depth)
