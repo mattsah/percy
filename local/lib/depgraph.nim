@@ -9,12 +9,13 @@ export
     semver
 
 type
-    InvalidNimVersionException* = ref object of CatchableError
-        current*: string
+    AddRequirementException* = ref object of CatchableError
         requirement*: Requirement
 
-    EmptyCommitPoolException* = ref object of CatchableError
-        requirement*: Requirement
+    InvalidNimVersionException* = ref object of AddRequirementException
+        current*: string
+
+    EmptyCommitPoolException* = ref object of AddRequirementException
 
     ConstraintHook* = proc(v: Version): bool
 
@@ -342,13 +343,15 @@ begin DepGraph:
         except Exception as e:
             this.commits[commit.repository].excl(commit)
 
-            with e of InvalidNimVersionException:
-                warn  fmt "Graph: Excluding Commit ({e.msg})"
-                print fmt "> Requirement: Nim @ {e.requirement.versions}"
-                print fmt "> Current Version: {e.current}"
-            with e of EmptyCommitPoolException:
-                warn  fmt "Graph: Excluding Commit ({e.msg})"
-                print fmt "> Requirement: {e.requirement.package} @ {e.requirement.versions}"
+            with e of AddRequirementException:
+                discard this.stack.pop()
+                with e of InvalidNimVersionException:
+                    warn  fmt "Graph: Excluding Commit ({e.msg})"
+                    print fmt "> Requirement: Nim @ {e.requirement.versions}"
+                    print fmt "> Current Version: {e.current}"
+                with e of EmptyCommitPoolException:
+                    warn  fmt "Graph: Excluding Commit ({e.msg})"
+                    print fmt "> Requirement: {e.requirement.package} @ {e.requirement.versions}"
             with e of ValueError:
                 warn  fmt "Graph: Excluding Commit (Failed Resolving Nimble File)"
                 print fmt "> Error: {e.msg}"
@@ -394,6 +397,8 @@ begin DepGraph:
 
     ]#
     method addRequirement*(parent: Commit, requirement: Requirement, depth: int): void {. base .} =
+        this.stack.add(requirement)
+
         if requirement.package.toLower() == "nim":
             if not this.checkConstraint(requirement, Commit(version: ver(NimVersion))):
                 raise InvalidNimVersionException(
@@ -405,7 +410,6 @@ begin DepGraph:
             let
                 key = (parent.repository, parent.version)
 
-            this.stack.add(requirement)
             this.expandCommits(requirement)
 
             if this.commits[requirement.repository].len == 0:
@@ -451,7 +455,7 @@ begin DepGraph:
 
                 this.requirements[key].add(requirement)
 
-            discard this.stack.pop()
+        discard this.stack.pop()
 
     #[
 
