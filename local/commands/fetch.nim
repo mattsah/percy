@@ -147,6 +147,9 @@ begin FetchCommand:
             info fmt "> Error: {e.msg}"
             return 1
 
+        if newest:
+            discard repository.update(force = true)
+
         try:
             commit = this.resolveCommit(repository, ver(version))
         except Exception as e:
