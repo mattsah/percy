@@ -164,11 +164,6 @@ begin FetchCommand:
         workDir = buildDir / repository.shaHash
         targetDir = workDir / commit.id
 
-        if not keep:
-            for dir in walkDir(workDir):
-                if dir.path != targetDir:
-                    removeDir(dir.path)
-
         discard repository.prune()
 
         if not dirExists(targetDir):
@@ -239,6 +234,17 @@ begin FetchCommand:
             fail fmt "Failed Building Worktree"
             info fmt "> Error: {e.msg}"
             return 4
+
+        #
+        # Remove other versions
+        #
+        if not keep:
+            for dir in walkDir(workDir):
+                if dir.path != targetDir:
+                    removeDir(dir.path)
+
+        discard repository.prune()
+
 
 shape FetchCommand: @[
     Command(
