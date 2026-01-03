@@ -99,7 +99,7 @@ proc ver*(version: string): Version =
         lowered = version.toLower()
         cleaned = lowered.replace(re"[!@#$%^&*+_.,/]", "-")
 
-    if lowered == "head": # explicit head
+    if lowered in ["any", "head"]: # any or explit HEAD
         return v("0.0.0-HEAD")
     if lowered.startsWith("head@"): # explicit branch
         return v("0.0.0-branch." & cleaned[5..^1])

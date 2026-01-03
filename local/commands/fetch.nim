@@ -101,16 +101,48 @@ begin FetchCommand:
             if not fileExists(filePath):
                 buildDo = true
 
-        (output, error) = execCmdEx(buildCmd)
+        if buildDo:
+            error = percy.execCmdCaptureAll(output, @[
+                buildCmd
+            ])
 
-        if this.verbosity > 0:
-            info output
+            if this.verbosity > 0:
+                info fmt "Building:"
+                for line in output.split('\n'):
+                    info indent(line, 3)
 
-        if error != 0:
-            raise newException(
-                ValueError,
-                fmt "failed executing `{buildCmd}` with error ({error})"
-            )
+            if error != 0:
+                raise newException(
+                    ValueError,
+                    fmt "failed executing `{buildCmd}` with error ({error})"
+                )
+
+    method linkBinFiles(binFiles: HashSet[string], binDir: string): void =
+        for file in binFiles:
+            let
+                linkPath = binDir / file.extractFilename()
+
+            if symlinkExists(linkPath):
+                let
+                    current = expandSymLink(linkPath)
+                if current == file and secureHashFile(current) == secureHashFile(file):
+                    warn fmt "Existing Binary Link Is Latest"
+                    info fmt "> Link: {linkPath}"
+                    info fmt "> Current Target: {current}"
+                    continue
+                else:
+                    warn fmt "Replacing Existing Binary Link"
+                    info fmt "> Path: {linkPath}"
+                    info fmt "> Current Target: {current}"
+                    info fmt "> New Target: {file}"
+                    removeFile(linkPath)
+            else:
+                event fmt "Creating Binary Link"
+                print fmt "> Link: {linkPath}"
+                print fmt "> Binary: {file}"
+
+            createSymlink(file, linkPath)
+
 
     #[
 
@@ -124,6 +156,7 @@ begin FetchCommand:
             url = console.getArg("url")
             version = console.getArg("version")
             binDir = absolutePath(console.getOpt("bin-directory").expandTilde())
+            delete = parseBool(console.getOpt("delete"))
             newest = parseBool(console.getOpt("newest"))
             keep = parseBool(console.getOpt("keep"))
         var
@@ -142,8 +175,10 @@ begin FetchCommand:
 
         setCurrentDir(buildDir)
 
+        repository = Repository.init(url)
+        workDir = buildDir / repository.shaHash
+
         try:
-            repository = Repository.init(url)
             discard repository.clone()
         except Exception as e:
             fail fmt "Could not fetch from repository"
@@ -156,92 +191,108 @@ begin FetchCommand:
         try:
             commit = this.resolveCommit(repository, ver(version))
         except Exception as e:
-            fail fmt "Could not fetch request version"
+            fail fmt "Could Resolve Version"
             info fmt "> Error: {e.msg}"
             info fmt "> Version: {version}"
             return 2
 
-        workDir = buildDir / repository.shaHash
         targetDir = workDir / commit.id
 
         discard repository.prune()
 
-        if not dirExists(targetDir):
-            error = repository.exec(
-                @[
-                    fmt "git worktree add -d {targetDir} {commit.id}",
-                ],
-                output
-            )
-
-            if error != 0:
-                fail fmt "Could Not Create Build Worktree"
-                info fmt "> Error: {output}"
+        if delete:
+            if not dirExists(targetDir):
+                fail fmt "Unable To Remove Requested Binaries"
+                info fmt "> Error: no versions of the requested repository exist"
                 return 3
-
-            setCurrentDir(targetDir)
-        else:
-            setCurrentDir(targetDir)
-
-            error = percy.execCmdCaptureAll(output, @[
-                fmt "git checkout -d {commit.id}",
-            ])
-
-            if error != 0:
-                fail fmt "Could Not Update Build Worktree"
-                return 3
-
-
-        error = this.initializeWorkTree()
-
-        if error != 0:
-            return 10 + error
-
-        error = this.updateWorkTree(newest)
-
-        if error != 0:
-            return 20 + error
-
-        try:
-            let
-                binFiles = this.buildWorkTree(newest)
-
-            for file in binFiles:
-                let
-                    linkPath = binDir / file.extractFilename()
-
-                if symlinkExists(linkPath):
-                    let
-                        current = expandSymLink(linkPath)
-                    if current == file and secureHashFile(current) == secureHashFile(file):
-                        warn fmt "Existing Binary Link Is Latest"
-                        info fmt "> Path: {linkPath}"
-                        continue
-                    else:
-                        warn fmt "Replacing Existing Binary Link"
-                        info fmt "> Path: {linkPath}"
-                        info fmt "> Current: {current}"
-                        info fmt "> Updated: {file}"
-                        removeFile(linkPath)
+            else:
+                if version == "any":
+                    print fmt "Removing All Versions of Request Repository"
+                    print fmt "> Path: {workDir}"
+                    removeDir(workDir)
                 else:
-                    event fmt "Creating Binary Link"
-                    print fmt "> Path: {linkPath}"
-                    print fmt "> Linked: {file}"
+                    var
+                        alts: seq[(string, Time)]
 
-                createSymlink(file, linkPath)
+                    print fmt "Removing Requested Version of Repository"
+                    print fmt "> Version: {version}"
+                    print fmt "> Path: {targetDir}"
+                    removeDir(targetDir)
 
-        except Exception as e:
-            fail fmt "Failed Building Worktree"
-            info fmt "> Error: {e.msg}"
-            return 4
+                    print fmt "Searching Usable Versions"
 
-        #
-        # Remove other versions
-        #
-        if not keep:
-            for dir in walkDir(workDir):
-                if dir.path != targetDir:
-                    removeDir(dir.path)
+                    for dir in walkDir(workDir):
+                        if dirExists(dir.path):
+                            alts.add((dir.path, getCreationTime(dir.path)))
+
+                    for (targetDir, created) in alts.sortedByIt(it[1]).reversed():
+                        setCurrentDir(targetDir)
+                        try:
+                            this.linkBinFiles(this.buildWorkTree(), binDir)
+                        except:
+                            discard
+
+            warn fmt "Removing Stale Links"
+            for file in walkDir(binDir):
+                if not symLinkExists(file.path):
+                    continue
+                let
+                    source = expandSymLink(file.path)
+                if source.startsWith(buildDir) and not fileExists(file.path):
+                    if this.verbosity > 0:
+                        info fmt "> Link: {file.path}"
+                    removeFile(file.path)
+        else:
+            if not dirExists(targetDir):
+                error = repository.exec(
+                    @[
+                        fmt "git worktree add -d {targetDir} {commit.id}",
+                    ],
+                    output
+                )
+
+                if error != 0:
+                    fail fmt "Could Not Create Build Worktree"
+                    info fmt "> Error: {output}"
+                    return 3
+
+                setCurrentDir(targetDir)
+            else:
+                setCurrentDir(targetDir)
+
+                error = percy.execCmdCaptureAll(output, @[
+                    fmt "git checkout -d {commit.id}",
+                ])
+
+                if error != 0:
+                    fail fmt "Could Not Update Build Worktree"
+                    info fmt "> Error: {output}"
+                    return 3
+
+            error = this.initializeWorkTree()
+
+            if error != 0:
+                return 10 + error
+
+            error = this.updateWorkTree(newest)
+
+            if error != 0:
+                return 20 + error
+
+            try:
+                this.linkBinFiles(this.buildWorkTree(newest), binDir)
+            except Exception as e:
+                fail fmt "Failed Building Worktree"
+                info fmt "> Error: {e.msg}"
+                return 4
+
+            #
+            # Remove other versions
+            #
+            if not keep:
+                for dir in walkDir(workDir):
+                    if dir.path != targetDir:
+                        removeDir(dir.path)
 
         discard repository.prune()
 
@@ -257,7 +308,7 @@ shape FetchCommand: @[
             ),
             Arg(
                 name: "version",
-                default: "head",
+                default: "any",
                 description: "The version to fetch and build"
             )
         ],
