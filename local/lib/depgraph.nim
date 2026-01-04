@@ -17,6 +17,9 @@ type
 
     EmptyCommitPoolException* = ref object of AddRequirementException
 
+    NoUsableVersionsException* = ref object of CatchableError
+        repositories*: seq[Repository]
+
     ConstraintHook* = proc(v: Version): bool
 
     Constraint* = ref object of Class
@@ -463,6 +466,8 @@ begin DepGraph:
         let
             repository = this.settings.getRepository(getCurrentDir())
             commit = Commit(repository: repository)
+        var
+            failures: seq[Repository]
 
         this.newest = newest
         this.requirements[(commit.repository, commit.version)] = newSeq[Requirement]()
@@ -473,10 +478,13 @@ begin DepGraph:
 
         for repository in this.commits.keys:
             if not this.tracking.hasKey(repository):
-                raise newException(
-                    ValueError,
-                    fmt "could not find usable version(s) for '{repository.url}'"
-                )
+                failures.add(repository)
+
+        if failures.len != 0:
+            raise NoUsableVersionsException(
+                msg: fmt "could not find usable version(s) for one or more repositories",
+                repositories: failures
+            )
 
         #
         # Determine sorting possibly by arguments to build, for now we'll just sort by least to

@@ -211,6 +211,15 @@ proc parse*(source: string, map: var string): NimbleFileInfo =
                 "Failed parsing requirements: " & cleaned
             )
 
+    if info.hasKey("bin"):
+        if not info.hasKey("namedBin"):
+            info["namedBin"] = newJObject()
+        for bin in info["bin"]:
+            let
+                name = bin.getStr()
+            if not info["namedBin"].hasKey(name):
+                info["namedBin"][name] = bin
+
     result = info.to(NimbleFileInfo)
 
 proc parse*(source: string): NimbleFileInfo =

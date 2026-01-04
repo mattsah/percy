@@ -87,6 +87,11 @@ begin BaseGraphCommand:
             fail fmt "Failed updating"
             info fmt "> Error: {e.msg}"
 
+            with e of NoUsableVersionsException:
+                info fmt "> Repositories:"
+                for repository in e.repositories:
+                    info fmt "       {repository.url}"
+
             with e of EmptyCommitPoolException:
                 info fmt "> Attempted URL: {e.requirement.repository.url}"
                 info fmt "> Required As: {e.requirement.package}"

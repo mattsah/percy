@@ -92,9 +92,9 @@ begin FetchCommand:
                 nimbleInfo = parser.parse(readFile(file.path))
                 break
 
-        for file in nimbleInfo.bin:
+        for srcName, binName in nimbleInfo.namedBin:
             let
-                filePath = absolutePath(getCurrentDir() / nimbleInfo.binDir) / file
+                filePath = absolutePath(getCurrentDir() / nimbleInfo.binDir) / binName
 
             result.incl(filePath)
 

@@ -47,7 +47,7 @@ begin InitCommand:
     ]#
     method buildTask(): string {. base .} =
         let
-            cfg = "\"\"\"{\"bin\": \"\", \"srcDir\": \"\", \"binDir\": \"\"}\"\"\""
+            cfg = %(namedbin: (), srcDir: ".", binDir: ".")
 
         result = dedent(
             fmt """
@@ -67,38 +67,30 @@ begin InitCommand:
 
             proc build(args: seq[string]): void =
                 var
-                    cfg: JsonNode
+                    cfg = parseJson({escape($cfg)})
                 when defined(windows):
                     let
                         (info, error) = gorgeEx("percy info -j 2>NUL")
                 else:
                     let
                         (info, error) = gorgeEx("percy info -j 2>/dev/null")
-                if error > 0:
-                    cfg = parseJson({cfg})
-                else:
+                if error == 0:
                     cfg = parseJson(info)
 
                 let
-                    bins = cfg["bin"].getElems()
-                    srcDir = cfg["srcDir"].getStr()
-                    binDir = cfg["binDir"].getStr()
-                    output = if binDir.len > 0: binDir & "/" else: "./"
+                    srcDir = strip(cfg["srcDir"].getStr(), leading = false, chars = {{'/'}}) & "/"
+                    binDir = strip(cfg["binDir"].getStr(), leading = false, chars = {{'/'}}) & "/"
 
-                for path in listFiles(if srcDir.len > 1: srcDir else: "./"):
-                    if path.endsWith(".nim"):
-                        let
-                            target = path[path.find('/')+1..^5]
-                        if bins.len == 0 or bins.contains(%target):
-                            let
-                                cmd = @[
-                                    "nim -o:" & output,
-                                    commandLineParams()[1..^1].join(" "),
-                                    args.join(" "),
-                                    "c " & path
-                                ].join(" ")
-                            echo "Executing: " & cmd
-                            exec cmd
+                for srcName, binName in cfg["namedBin"]:
+                    let
+                        cmd = @[
+                            "nim -o:" & binDir & binName.getStr(),
+                            commandLineParams()[1..^1].join(" "),
+                            args.join(" "),
+                            "c " & srcDir & srcName
+                        ].join(" ")
+                    echo "Executing: " & cmd
+                    exec cmd
 
             task build, "Build the application (whatever it's called)":
                 when defined release:

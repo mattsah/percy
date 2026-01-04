@@ -2,8 +2,6 @@ import std/tables
 
 type NimbleFileInfo* = object
     # Meta
-    name*: string
-    version*: string
     author*:string
     description*: string
     license*: string
@@ -15,8 +13,8 @@ type NimbleFileInfo* = object
 
     # Build
     bin*: seq[string]
-    binDir*: string
-    srcDir*: string
+    binDir*: string = "."
+    srcDir*: string = "."
     namedBin*: Table[string, string]
 
     # TODO
