@@ -117,7 +117,7 @@ begin FetchCommand:
                     fmt "failed executing `{buildCmd}` with error ({error})"
                 )
 
-    method linkBinFiles(binFiles: HashSet[string], binDir: string): void =
+    method linkBinFiles(binFiles: HashSet[string], binDir: string): void {. base .} =
         for file in binFiles:
             let
                 linkPath = binDir / file.extractFilename()
