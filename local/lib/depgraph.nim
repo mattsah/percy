@@ -387,9 +387,7 @@ begin DepGraph:
                     print fmt "> Repository URL: {requirement.repository.url}"
                     print fmt "> Repository Hash: {requirement.repository.shaHash}"
 
-                # TODO: Remove condition
-                if not requirement.repository.cacheExists or this.newest:
-                    discard requirement.repository.update(quiet = this.quiet, force = true)
+                discard requirement.repository.update(quiet = this.quiet, force = this.newest)
 
                 this.commits[requirement.repository] = requirement.repository.getCommits()
             else:
