@@ -44,7 +44,7 @@ type
         stack: seq[Requirement]
         commits: OrderedTable[Repository, OrderedSet[Commit]]
         tracking: OrderedTable[Repository, OrderedSet[Commit]]
-        requirements: Table[(Repository, Version), seq[Requirement]]
+        requirements: Table[Commit, seq[Requirement]]
         settings: Settings
 
     DecisionLevel = int
@@ -232,7 +232,6 @@ begin DepGraph:
         # issue is that a URL can contain an `~`.
         #
         var
-            parts: seq[string]
             commits: seq[string]
             package: string
             versions: string
@@ -242,15 +241,16 @@ begin DepGraph:
                     result = true
             ))
 
-        package = requirement.strip()
         versions = "any"
+        package = requirement.strip()
 
-        for i, sym in package:
-            if sym in {'=', '>', '<', '~', '^', '#', '@', ' '}:
-                parts = package.split(sym, 1)
-                package = parts[0].strip()
-                if parts.len > 1:
-                    versions = replace(sym & parts[1].toLower(), " ", "")
+        for i in 0..package.high:
+            if package[i] == '~' and package[i-1] == '/':
+                continue
+            if package[i] in {'=', '>', '<', '~', '^', '#', '@', ' '}:
+                if i != package.high:
+                    versions = package[i..^1].toLower().replace(" ", "")
+                package = package[0..i-1]
                 break
 
         repository = this.settings.getRepository(package)
@@ -321,10 +321,7 @@ begin DepGraph:
 
     ]#
     method resolve*(commit: Commit, depth: int): void {. base .} =
-        let
-            key = (commit.repository, commit.version)
-
-        this.requirements[key] = newSeq[Requirement]()
+        this.requirements[commit] = newSeq[Requirement]()
 
         if not this.quiet:
             print fmt "Graph: Resolving Nimble File"
@@ -369,7 +366,7 @@ begin DepGraph:
                     info fmt "> Requirement: {e.requirement.package} @ {e.requirement.versions}"
             with e of ValueError:
                 warn fmt "Graph: Excluding Commit (Failed Resolving Nimble File)"
-                info fmt "> Error: {e.msg}"
+                info fmt "> Error: {getCurrentExceptionMsg()}"
 
             info fmt "> Commit Repository URL: {commit.repository.url}"
             info fmt "> Commit Repository Hash: {commit.repository.shaHash}"
@@ -419,9 +416,6 @@ begin DepGraph:
                     requirement: requirement
                 )
         else:
-            let
-                key = (parent.repository, parent.version)
-
             this.expandCommits(requirement)
 
             if this.commits[requirement.repository].len == 0:
@@ -435,10 +429,7 @@ begin DepGraph:
                     toRemove = Table[Commit, string]()
 
                 for commit in this.commits[requirement.repository]:
-                    let
-                        key = (commit.repository, commit.version)
-
-                    if not this.requirements.hasKey(key):
+                    if not this.requirements.hasKey(commit):
                         if depth == 0:
                             if not this.checkConstraint(requirement, commit):
                                 toRemove[commit] = "Not Usable At Top-Level"
@@ -465,7 +456,7 @@ begin DepGraph:
                     print fmt "> Dependent: {parent.repository.url} @ {parent.version}"
                     print fmt "> Dependency: {requirement.repository.url} @ {requirement.versions}"
 
-                this.requirements[key].add(requirement)
+                this.requirements[parent].add(requirement)
 
         discard this.stack.pop()
 
@@ -476,25 +467,13 @@ begin DepGraph:
         let
             repository = this.settings.getRepository("")
             commit = Commit(repository: repository)
-        var
-            failures: seq[Repository]
 
         this.newest = newest
-        this.requirements[(commit.repository, commit.version)] = newSeq[Requirement]()
+        this.requirements[commit] = newSeq[Requirement]()
 
         for requirements in nimbleInfo.requires:
             for requirement in requirements:
                 this.addRequirement(commit, this.parseRequirement(requirement), 0)
-
-        for repository in this.commits.keys:
-            if not this.tracking.hasKey(repository):
-                failures.add(repository)
-
-        if failures.len != 0:
-            raise NoUsableVersionsException(
-                msg: fmt "could not find usable version(s) for one or more repositories",
-                repositories: failures
-            )
 
         #
         # Determine sorting possibly by arguments to build, for now we'll just sort by least to
@@ -581,15 +560,13 @@ begin Solver:
                 for commit in graph.tracking[repository]:
                     var
                         consistentWithOtherAssignments = true
-                    let
-                        key = (commit.repository, commit.version)
 
-                    if graph.requirements.hasKey(key):
+                    if graph.requirements.hasKey(commit):
                         #
                         # We loop through all of the requirements for this commit and check to see
                         # if any of our existing assignments violate them.
                         #
-                        for requirement in graph.requirements[key]:
+                        for requirement in graph.requirements[commit]:
                             if assignments.hasKey(requirement.repository):
                                 let
                                     assignment = assignments[requirement.repository]

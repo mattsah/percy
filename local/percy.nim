@@ -104,6 +104,13 @@ proc ver*(version: string): Version =
     if lowered.startsWith("head@"): # explicit branch
         return v("0.0.0-branch." & cleaned[5..^1])
     if lowered.len >= 4 and lowered.len <= 40 and lowered.match(re"^[a-f0-9]+$"): # implicit commit
+        if lowered.len == 8 and lowered.match(re"^[0-9]+$"):
+            let
+                year = lowered[0..3]
+                month = lowered[4..5]
+                day = lowered[6..7]
+            if year >= "2010" and month >= "01" and month <= "12" and day <= "31":
+                return v(fmt "{year}.{$parseInt(month)}.{$parseInt(day)}")
         return v("0.0.0-commit." & lowered)
     if lowered.match(re"^v?[0-9]+\.[0-9]+(\.[0-9]+)?.*"): # implicit version tag
         var
