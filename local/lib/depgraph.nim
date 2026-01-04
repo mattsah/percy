@@ -20,7 +20,7 @@ type
     EmptyCommitPoolException* = ref object of AddRequirementException
 
     NoUsableVersionsException* = ref object of CatchableError
-        repositories*: seq[Repository]
+        requirements*: seq[Requirement]
 
     ConstraintHook* = proc(v: Version): bool
 
@@ -359,7 +359,7 @@ begin DepGraph:
                     discard this.stack.pop()
                 with e of InvalidNimVersionException:
                     warn fmt "Graph: Excluding Commit ({e.msg})"
-                    info fmt "> Requirement: Nim @ {e.requirement.versions}"
+                    info fmt "> Requirement: nim @ {e.requirement.versions}"
                     info fmt "> Current Version: {e.current}"
                 with e of EmptyCommitPoolException:
                     warn fmt "Graph: Excluding Commit ({e.msg})"
@@ -466,7 +466,9 @@ begin DepGraph:
     method build*(nimbleInfo: NimbleFileInfo, newest: bool = false): void {. base .} =
         let
             repository = this.settings.getRepository("")
-            commit = Commit(repository: repository)
+            commit = Commit(id: "current", repository: repository)
+        var
+            failures: seq[Requirement]
 
         this.newest = newest
         this.requirements[commit] = newSeq[Requirement]()
@@ -474,6 +476,16 @@ begin DepGraph:
         for requirements in nimbleInfo.requires:
             for requirement in requirements:
                 this.addRequirement(commit, this.parseRequirement(requirement), 0)
+
+        for requirement in this.requirements[commit]:
+            if not this.tracking.hasKey(requirement.repository):
+                failures.add(requirement)
+
+        if failures.len != 0:
+            raise NoUsableVersionsException(
+                msg: fmt "could not find usable version(s) for one or more requirements",
+                requirements: failures
+            )
 
         #
         # Determine sorting possibly by arguments to build, for now we'll just sort by least to

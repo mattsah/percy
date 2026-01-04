@@ -49,7 +49,7 @@ begin Commit:
         result = fmt "{this.id} {$this.version}"
 
     proc hash*(): Hash =
-        result = hash(this.id)
+        result = hash(this.repository.url & this.id)
 
 begin Repository:
     proc hash*(): Hash =
@@ -92,15 +92,18 @@ begin Repository:
                         uri.hostname = "codeberg.org"
                     else:
                         raise newException(ValueError, fmt "invalid scheme {uri.scheme}")
+                uri.opaque = false
                 uri.scheme = "https"
 
-        if uri.scheme.len > 0: # optimized
+        if uri.scheme.len > 0:
             if uri.path.endsWith(".git"):
                 uri.path = uri.path[0..^5]
-        elif uri.path != "":
-            uri.path = absolutePath(uri.path)
-        else:
+            else:
+                discard
+        elif uri.path == getCurrentDir():
             uri.path = getCurrentDir().splitFile().name
+        else:
+            uri.path = absolutePath(uri.path)
 
         if uri.anchor.len > 0:
             uri.anchor = ""
@@ -291,10 +294,11 @@ begin Repository:
             for line in readFile(this.cacheDir / "FETCH_HEAD").split("\n"):
                 let
                     matchUrl = this.url.strip(leading = false, chars = {'/'}).toLower()
-                if line.toLower().split("\t\t")[1].startsWith(matchUrl):
+                    lineParts = line.toLower().split("\t\t")
+                if lineParts.len > 1 and lineParts[1].startsWith(matchUrl):
                     result = line[0..39]
                     break
-        if not result:
+        if result.len == 0:
             raise newException(
                 ValueError,
                 fmt "could not determine head on {this.url} ({this.shaHash})"

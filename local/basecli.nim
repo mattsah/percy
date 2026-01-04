@@ -92,9 +92,12 @@ begin BaseGraphCommand:
                 info fmt "> Error: {e.msg}"
 
                 with e of NoUsableVersionsException:
-                    info fmt "> Repositories:"
-                    for repository in e.repositories:
-                        info fmt "       {repository.url}"
+                    info fmt "> Requirements:"
+                    for requirement in e.requirements:
+                        info fmt "        {requirement.package} @ {requirement.versions}"
+                        info fmt "        > Repository URL: {requirement.repository.url}"
+                        info fmt "        > Repository Hash: {requirement.repository.shaHash}"
+
 
                 with e of AddRequirementException:
                     info fmt "> Attempted URL: {e.requirement.repository.url}"

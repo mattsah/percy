@@ -123,12 +123,8 @@ proc parse*(source: string, map: var string): NimbleFileInfo =
         parseUntil(value, '}')
 
         try:
-            if value.len > 0:
-                case value[0]:
-                    of '{':
-                        return parseJson(value[0..value.rfind('}')])
-                    else:
-                        discard
+            if value.contains('{'):
+                return parseJson(value[value.find('{')..value.rfind('}')])
             else:
                 return newJNull()
         except:
