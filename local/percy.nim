@@ -81,14 +81,14 @@ proc execIn*(callback: ExecHook, dir: string = percy.getAppLocalDir()): void =
 
     if dir != originalDir:
         when defined debug:
-            print fmt "Entering directory '{dir}'"
+            info fmt "Entering directory '{dir}'"
         setCurrentDir(dir)
 
     callback()
 
     if dir != originalDir:
         when defined debug:
-            print fmt "Leaving directory '{dir}'"
+            info fmt "Leaving directory '{dir}'"
         setCurrentDir(originalDir)
 
 #[

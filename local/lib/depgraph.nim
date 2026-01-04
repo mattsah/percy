@@ -12,6 +12,8 @@ type
     AddRequirementException* = ref object of CatchableError
         requirement*: Requirement
 
+    ParseRequirementException* = ref object of AddRequirementException
+
     InvalidNimVersionException* = ref object of AddRequirementException
         current*: string
 
@@ -287,7 +289,7 @@ begin DepGraph:
         try:
             Repository.validateUrl(repository.url)
         except Exception as e:
-            raise AddRequirementException(
+            raise ParseRequirementException(
                 msg: e.msg,
                 requirement: result
             )
@@ -356,7 +358,8 @@ begin DepGraph:
             this.commits[commit.repository].excl(commit)
 
             with e of AddRequirementException:
-                discard this.stack.pop()
+                if not(e of ParseRequirementException):
+                    discard this.stack.pop()
                 with e of InvalidNimVersionException:
                     warn fmt "Graph: Excluding Commit ({e.msg})"
                     info fmt "> Requirement: Nim @ {e.requirement.versions}"

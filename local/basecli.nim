@@ -84,32 +84,36 @@ begin BaseGraphCommand:
         except Exception as e:
             if graph.stack.len > 0:
                 graph.reportStack()
-            fail fmt "Failed updating"
-            info fmt "> Error: {e.msg}"
 
-            with e of NoUsableVersionsException:
-                info fmt "> Repositories:"
-                for repository in e.repositories:
-                    info fmt "       {repository.url}"
+            when defined(debug):
+                raise e
+            else:
+                fail fmt "Failed updating"
+                info fmt "> Error: {e.msg}"
 
-            with e of AddRequirementException:
-                info fmt "> Attempted URL: {e.requirement.repository.url}"
-                info fmt "> Required As: {e.requirement.package}"
-                if e.requirement.package.contains("://"):
-                    info fmt """
-                        > Hint: There was most likely an issue connecting to the repository, you
-                                should verify it exists at the specified URL.
-                    """
-                else:
-                    info fmt """
-                        > Hint: Your project is trying to use a package that it can't find. This
-                                most likely indicates that it was removed from an existing
-                                source, or you may have forgotten to set a required source. Use
-                                `percy set source` to add a source that can resolve the package
-                                alias to a valid git repository. Alternatively, you can use
-                                `percy set package` to set it directly.
-                    """
-            return 1
+                with e of NoUsableVersionsException:
+                    info fmt "> Repositories:"
+                    for repository in e.repositories:
+                        info fmt "       {repository.url}"
+
+                with e of AddRequirementException:
+                    info fmt "> Attempted URL: {e.requirement.repository.url}"
+                    info fmt "> Required As: {e.requirement.package}"
+                    if e.requirement.package.contains("://"):
+                        info fmt """
+                            > Hint: There was most likely an issue connecting to the repository,
+                                    you should verify it exists at the specified URL.
+                        """
+                    else:
+                        info fmt """
+                            > Hint: Your project is trying to use a package that it can't find.
+                                    This most likely indicates that it was removed from an existing
+                                    source, or you may have forgotten to set a required source. Use
+                                    `percy set source` to add a source that can resolve the package
+                                    alias to a valid git repository. Alternatively, you can use
+                                    `percy set package` to set it directly.
+                        """
+                return 1
 
         if this.verbosity > 0:
             graph.report()
