@@ -92,7 +92,7 @@ begin BaseGraphCommand:
                 for repository in e.repositories:
                     info fmt "       {repository.url}"
 
-            with e of EmptyCommitPoolException:
+            with e of AddRequirementException:
                 info fmt "> Attempted URL: {e.requirement.repository.url}"
                 info fmt "> Required As: {e.requirement.package}"
                 if e.requirement.package.contains("://"):

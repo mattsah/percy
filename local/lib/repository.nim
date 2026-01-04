@@ -7,6 +7,9 @@ import
     checksums/sha1
 
 type
+    InvalidRepositoryUrlException* = ref object of CatchableError
+        url*: string
+
     RCloneStatus* = enum
         RCloneExists
         RCloneCreated
@@ -54,9 +57,9 @@ begin Repository:
 
     proc validateUrl*(url: string): void {. static .} =
         if url.startsWith(getCurrentDir() & "/"):
-            raise newException(
-                ValueError,
-                fmt "repository should not be in your working directory"
+            raise InvalidRepositoryUrlException(
+                msg: fmt "repository should not be in your working directory",
+                url: url
             )
 
     proc qualifyUrl*(url: string): string {. static .} =

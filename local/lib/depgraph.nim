@@ -211,7 +211,7 @@ begin DepGraph:
 
                     raise newException(
                         ValueError,
-                        fmt "Invalid version constraint '{constraint}': {getCurrentExceptionMsg()}"
+                        fmt "invalid version constraint '{constraint}': {getCurrentExceptionMsg()}"
                     )
             )
         )
@@ -283,6 +283,15 @@ begin DepGraph:
             constraint: constraint,
             commits: commits
         )
+
+        try:
+            Repository.validateUrl(repository.url)
+        except Exception as e:
+            raise AddRequirementException(
+                msg: e.msg,
+                requirement: result
+            )
+
 
     #[
 
@@ -404,7 +413,7 @@ begin DepGraph:
         if requirement.package.toLower() == "nim":
             if not this.checkConstraint(requirement, Commit(version: ver(NimVersion))):
                 raise InvalidNimVersionException(
-                    msg: fmt "Unmet Nim Version Requirement",
+                    msg: fmt "unmet nim version requirement",
                     current: NimVersion,
                     requirement: requirement
                 )
@@ -416,7 +425,7 @@ begin DepGraph:
 
             if this.commits[requirement.repository].len == 0:
                 raise EmptyCommitPoolException(
-                    msg: fmt "Requirement Has No Available Commits",
+                    msg: fmt "requirement has no available commits",
                     requirement: requirement
                 )
             else:
