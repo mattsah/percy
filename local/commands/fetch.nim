@@ -121,25 +121,26 @@ begin FetchCommand:
         for file in binFiles:
             let
                 linkPath = binDir / file.extractFilename()
+                targetPath = file.replace(percy.getAppLocalDir(), "%")
 
             if symlinkExists(linkPath):
                 let
-                    current = expandSymLink(linkPath)
-                if current == file and secureHashFile(current) == secureHashFile(file):
+                    currentPath = expandSymLink(linkPath).replace(percy.getAppLocalDir(), "%")
+                if currentPath == file and secureHashFile(currentPath) == secureHashFile(file):
                     warn fmt "Existing Binary Link Is Latest"
                     info fmt "> Link: {linkPath}"
-                    info fmt "> Current Target: {current}"
+                    info fmt "> Current Target: {currentPath}"
                     continue
                 else:
                     warn fmt "Replacing Existing Binary Link"
                     info fmt "> Path: {linkPath}"
-                    info fmt "> Current Target: {current}"
-                    info fmt "> New Target: {file}"
+                    info fmt "> Current Target: {currentPath}"
+                    info fmt "> New Target: {targetPath}"
                     removeFile(linkPath)
             else:
                 event fmt "Creating Binary Link"
                 print fmt "> Link: {linkPath}"
-                print fmt "> Binary: {file}"
+                print fmt "> Binary: {targetPath}"
 
             createSymlink(file, linkPath)
 

@@ -464,7 +464,7 @@ begin DepGraph:
     ]#
     method build*(nimbleInfo: NimbleFileInfo, newest: bool = false): void {. base .} =
         let
-            repository = this.settings.getRepository(getCurrentDir())
+            repository = this.settings.getRepository("")
             commit = Commit(repository: repository)
         var
             failures: seq[Repository]

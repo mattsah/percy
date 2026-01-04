@@ -94,8 +94,10 @@ begin Repository:
         if uri.scheme.len > 0: # optimized
             if uri.path.endsWith(".git"):
                 uri.path = uri.path[0..^5]
+        elif uri.path != "":
+            uri.path = absolutePath(uri.path)
         else:
-            uri.path = absolutePath($uri)
+            uri.path = getCurrentDir().splitFile().name
 
         if uri.anchor.len > 0:
             uri.anchor = ""
