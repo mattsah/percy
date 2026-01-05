@@ -20,8 +20,8 @@ begin UnsetCommand:
 
         let
             skip = parseBool(console.getOpt("skip-resolution"))
+            unsetAlias = console.getArg("alias").toLower()
             unsetType = console.getArg("type")
-            unsetAlias = console.getArg("alias")
         var
             repository: Repository
 

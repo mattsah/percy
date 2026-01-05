@@ -45,10 +45,12 @@ begin Settings:
                 break;
 
     method getRepository*(reference: string): Repository {. base .} =
+        let
+            name = reference.toLower()
         var
             instance: Repository
-        if this.index.hasKey(reference):
-            instance = Repository.init(this.index[reference])
+        if this.index.hasKey(name):
+            instance = Repository.init(this.index[name])
         else:
             instance = Repository.init(reference)
 
@@ -153,7 +155,7 @@ begin Settings:
 
                     for package in getElems(packages):
                         let
-                            name = getStr(package["name"])
+                            name = getStr(package["name"]).toLower()
 
                         if aliases.hasKey(name):
                             aliases.del(name)
@@ -161,7 +163,7 @@ begin Settings:
                             resolved.del(name)
 
                         if package.hasKey("alias"):
-                            aliases[name] = getStr(package["alias"])
+                            aliases[name] = getStr(package["alias"]).toLower()
                         else:
                             resolved[name] = Repository.qualifyUrl(getStr(package["url"]))
 
@@ -260,14 +262,14 @@ begin Settings:
                     of "sources":
                         this.validateSources(value)
                         for name, url in value:
-                            this.data.sources[name] = Source.init(
+                            this.data.sources[name.toLower()] = Source.init(
                                 this.getRepository(getStr(url))
                             )
 
                     of "packages":
                         this.validatePackages(value)
                         for name, url in value:
-                            this.data.packages[name] = Package.init(
+                            this.data.packages[name.toLower()] = Package.init(
                                 this.getRepository(getStr(url))
                             )
 

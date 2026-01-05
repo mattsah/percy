@@ -27,7 +27,7 @@ begin SetCommand:
             setType = console.getArg("type")
             repository = Repository.init(setUrl)
         var
-            setAlias = console.getArg("alias")
+            setAlias = console.getArg("alias").toLower()
 
         if setAlias == "<path of url>":
             setAlias = parseUri(repository.url).path.toLower().strip(chars = {'/'})
