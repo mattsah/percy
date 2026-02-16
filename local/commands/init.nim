@@ -47,7 +47,7 @@ begin InitCommand:
     ]#
     method buildTask(): string {. base .} =
         let
-            cfg = %(namedbin: (), srcDir: ".", binDir: ".")
+            cfg = %(namedBin: (), srcDir: ".", binDir: ".")
 
         result = dedent(
             fmt """
