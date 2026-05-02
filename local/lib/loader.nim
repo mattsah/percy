@@ -3,6 +3,7 @@ import
     lib/settings,
     lib/depgraph,
     lib/repository,
+    lib/links,
     pkg/checksums/sha1
 
 type
@@ -216,6 +217,22 @@ begin Loader:
                 if not this.map[relPath]["subs"].contains(%repository.shaHash):
                     this.map[relPath]["subs"].add(%repository.shaHash)
 
+    method restoreLinks() {. base .} =
+        let links = readLinks()
+        for url, absPath in links.links:
+            let
+                workDir = this.settings.getWorkDir(url)
+                targetDir = getVendorDir(workDir)
+            if symLinkExists(targetDir):
+                discard  # already fine
+            elif dirExists(absPath):
+                createDir(targetDir.parentDir())
+                createSymlink(absPath, targetDir)
+                if not this.quiet:
+                    info fmt "> Restored link: {targetDir} → {absPath}"
+            elif not this.quiet:
+                warn fmt "> Broken link for '{url}': '{absPath}' not found (run `percy unlink` to clean up)"
+
     method loadSolution*(solution: Solution, preserve: bool = false, force: bool = false): seq[Checkout] {. base .} =
         var
             error: int
@@ -226,6 +243,8 @@ begin Loader:
             updateDirs: OrderedSet[string]
             createDirs: OrderedSet[string]
             workTrees: Table[string, WorkTree]
+
+        this.restoreLinks()
 
         if not this.quiet:
             print "Loading Solution"
@@ -246,7 +265,9 @@ begin Loader:
                 workTrees = commit.repository.workTrees
                 currentUrl = commit.repository.url
 
-            if not workTrees.hasKey(targetDir):
+            if symLinkExists(targetDir):
+                retainDirs.incl(targetDir)
+            elif not workTrees.hasKey(targetDir):
                 if dirExists(targetDir) and not force:
                     info fmt "> Skipped '{targetDir}'"
                     info fmt "> Reason: Working copy is not managed as {currentUrl} (force with -f)"

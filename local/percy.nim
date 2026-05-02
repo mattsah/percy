@@ -1,9 +1,12 @@
 import
     mininim,
     semver,
+    std/appdirs,
     std/re,
     std/osproc,
     nimble/parser
+
+from std/paths import Path, `/`, `$`
 
 export
     mininim,
@@ -32,16 +35,13 @@ proc getVendorDir*(subdir: string = ""): string =
     Get the application's local dir or a subdirectory of it
 ]#
 proc getAppLocalDir*(subdir: string = ""): string =
-    when defined(linux):
-        result = getHomeDir() / ".local" / "share" / percy.name / subdir
-    else:
-        result = getHomeDir() / ("." & percy.name) / subdir
+    result = $(appdirs.getDataDir() / paths.Path(percy.name) / paths.Path(subdir))
 
 #[
     Get the application's cache dir or a subdirectory of it
 ]#
 proc getAppCacheDir*(subdir: string = ""): string =
-    result = percy.getAppLocalDir("cache" / subdir)
+    result = $(appdirs.getCacheDir() / paths.Path(percy.name) / paths.Path(subdir))
 
 #[
     Execute a sequence as a command
