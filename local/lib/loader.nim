@@ -276,10 +276,10 @@ begin Loader:
 
                     if targetCommits.hasKey(item.path):
                         if commonDirectory != targetCommits[item.path].repository.cacheDir:
-                            deleteDirs.incl(item.path) # Delete so it can be recreated
+                            deleteDirs.incl(item.path) # Delete and...
+                            createDirs.incl(item.path) # Recreate
                             continue
                         else:
-                            createDirs.excl(item.path) # Remove from create list (already exists)
                             if currentCommit != targetCommits[item.path].id:
                                 updateDirs.incl(item.path) # Add to updates if commit differs
                             continue
@@ -311,14 +311,15 @@ begin Loader:
                 workDir = this.settings.getWorkDir(commit.repository.url)
                 targetDir = getVendorDir(workDir)
 
+            targetCommits[targetDir] = commit
+
+            if not dirExists(targetDir):
+                createDirs.incl(targetDir)
+
             if commit.info.srcDir.len > 0:
                 pathList.add(fmt "{percy.target / workDir / commit.info.srcDir}")
             else:
                 pathList.add(fmt "{percy.target / workDir}")
-
-            createDirs.incl(targetDir)
-            targetCommits[targetDir] = commit
-
 
         scanChanges(getVendorDir())
 
