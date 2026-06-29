@@ -24,7 +24,7 @@ type
         nimbleFile*: string
         nimbleMap*: string
 
-let
+const
     CommandConfigOpt* = Opt(
         flag: 'c',
         name: "config",
@@ -35,8 +35,8 @@ let
     CommandVerbosityOpt* = Opt(
         flag: 'v',
         name: "verbosity",
-        default: "0",
-        values: @["1", "2", "3"],
+        default: $0,
+        values: @[$1, $2, $3],
         description: "The verbosity level of the output"
     )
 

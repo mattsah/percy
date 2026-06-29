@@ -80,10 +80,6 @@ begin InfoCommand:
                             for dependency in itemGraph.dependencies:
                                 print fmt "      {itemGraphs[dependency].directory}"
 
-            else:
-                fail fmt "Invalid type specified"
-                return 1
-
 shape InfoCommand: @[
     Command(
         name: "info",
@@ -91,8 +87,8 @@ shape InfoCommand: @[
         args: @[
             Arg(
                 name: "type",
-                values: @["nimble", "lock", "graph"],
                 default: "nimble",
+                values: @["nimble", "lock", "graph"],
                 description: "The type of information to get"
             )
         ],

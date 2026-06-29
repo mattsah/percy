@@ -5,6 +5,19 @@ import
 type
     UnsetCommand = ref object of BaseGraphCommand
 
+const
+    CommandResourceArg = Arg(
+        name: "resource",
+        values: @["source", "package"],
+        description: "The type of resource to unset"
+    )
+
+    CommandReferenceArg = Arg(
+        name: "reference",
+        description: "The reference to unset, an alias or location (URL or local directory)"
+    )
+
+
 #[
     The `unset` command is responsible for removing a source or package from the configuration
     file, triggering updates and re-indexing of remaining sources and packages and, by default
@@ -21,31 +34,36 @@ begin UnsetCommand:
         let
             skip = parseBool(console.getOpt("skip-resolution"))
             force = parseBool(console.getOpt("force"))
-            unsetAlias = console.getArg("alias").toLower()
-            unsetType = console.getArg("type")
+            resource = console.getArg(CommandResourceArg)
+            reference = console.getArg(CommandReferenceArg)
         var
+            alias: string
             repository: Repository
 
         try:
-            case unsetType:
+            case resource:
                 of "source":
-                    if not this.settings.data.sources.hasKey(unsetAlias):
+                    alias = this.settings.getSourceAlias(reference)
+
+                    if not alias:
                         raise newException(ValueError, "does not appear to be set")
 
-                    repository = this.settings.data.sources[unsetAlias].repository
-                    this.settings.data.sources.del(unsetAlias)
+                    repository = this.settings.data.sources[alias].repository
+                    this.settings.data.sources.del(alias)
 
                 of "package":
-                    if not this.settings.data.packages.hasKey(unsetAlias):
+                    alias = this.settings.getPackageAlias(reference)
+
+                    if not alias:
                         raise newException(ValueError, "does not appear to be set")
 
-                    repository = this.settings.data.packages[unsetAlias].repository
-                    this.settings.data.packages.del(unsetAlias)
+                    repository = this.settings.data.packages[alias].repository
+                    this.settings.data.packages.del(alias)
 
         except Exception as e:
-            fail fmt "Invalid {unsetType} specified"
+            fail fmt "Invalid {resource} specified"
             info fmt "> Error: {e.msg}"
-            info fmt "> Alias: {unsetAlias}"
+            info fmt "> Reference: {reference}"
             return 1
 
         this.settings.prepare(force = true, save = false)
@@ -55,13 +73,13 @@ begin UnsetCommand:
 
         if result == 0:
             this.settings.save()
-            print fmt "Successfully unset {unsetType}"
-            print fmt "> URL: {repository.url}"
-            print fmt "> Alias: {unsetAlias}"
+            print fmt "Successfully unset {resource}"
+            print fmt "> Location: {repository.url}"
+            print fmt "> Alias: {alias}"
         else:
-            fail fmt "Unable to update after unsetting {unsetType}, no files written"
-            info fmt "> Repository: {repository.url}"
-            info fmt "> Alias: {unsetAlias}"
+            fail fmt "Unable to update after unsetting {resource}, no files written"
+            info fmt "> Location: {repository.url}"
+            info fmt "> Alias: {alias}"
             result = 10 + result
 
 shape UnsetCommand: @[
@@ -74,15 +92,8 @@ shape UnsetCommand: @[
             CommandSkipOpt,
         ],
         args: @[
-            Arg(
-                name: "type",
-                values: @["source", "package"],
-                description: "The type of URL to unset"
-            ),
-            Arg(
-                name: "alias",
-                description: "The alias for the source or package"
-            )
+            CommandResourceArg,
+            CommandReferenceArg
         ]
     )
 ]

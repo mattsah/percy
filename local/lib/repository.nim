@@ -139,6 +139,18 @@ begin Repository:
     method cacheExists*(): bool {. base .} =
         result = dirExists(this.cacheDir)
 
+    method isLocal*(): bool {. base .} =
+        result = not this.url.contains("://")
+
+    method isRemote*(): bool {. base .} =
+        result = not this.isLocal()
+
+    method defaultAlias*(): string {. base .} =
+        if this.isLocal():
+            result = this.url.strip(chars = {'/'}).lastPathPart
+        else:
+            result = parseUri(this.url).path.strip(chars = {'/'})
+
     #[
         Determine whether or not a repository exists by trying to list the remote
     ]#

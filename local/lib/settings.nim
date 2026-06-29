@@ -27,12 +27,35 @@ begin Settings:
     method init*(): void {. base .} =
         discard
 
-    method hasName*(url: string): bool {. base .} =
-        result = false
+    method getSourceAlias*(reference: string): string {. base .} =
+        if this.data.sources.hasKey(reference.toLower()):
+            return reference
+        for alias, source in this.data.sources:
+            if reference == source.repository.url:
+                return alias
+
+    method getPackageAlias*(reference: string): string {. base .} =
+        if this.data.packages.hasKey(reference.toLower):
+            return reference
+        for alias, package in this.data.packages:
+            if reference == package.repository.url:
+                return alias
+
+    method getPackageName*(reference: string): string {. base .} =
+        if this.index.hasKey(reference.toLower()):
+            return reference
         for name, value in this.index:
-            if url == value:
-                result = true
-                break
+            if reference == value:
+                return name
+
+    method getSourceAlias*(repository: Repository): string {. base .} =
+        result = this.getSourceAlias(repository.url)
+
+    method getPackageAlias*(repository: Repository): string {. base .} =
+        result = this.getPackageAlias(repository.url)
+
+    method getPackageName*(repository: Repository): string {. base .} =
+        result = this.getPackageName(repository.url)
 
     method getWorkDir*(url: string): string {. base .} =
         result = parseUri(url).path.strip(chars = {'/'}).toLower() # default to lowercased path
@@ -43,6 +66,9 @@ begin Settings:
                 else:
                     result = "+global" / name
                 break;
+
+    method getWorkDir*(repository: Repository): string {. base .} =
+        result = this.getWorkDir(repository.url)
 
     method getRepository*(reference: string): Repository {. base .} =
         let

@@ -2,11 +2,28 @@ import
     percy,
     basecli,
     lib/package,
-    lib/source,
-    std/uri
+    lib/source
 
 type
     SetCommand = ref object of BaseGraphCommand
+
+const
+    CommandResourceArg = Arg(
+        name: "resource",
+        values: @["source", "package"],
+        description: "The type of resource to set"
+    )
+
+    CommandLocationArg = Arg(
+        name: "location",
+        description: "The location of the git repository (a valid URL or directory)"
+    )
+
+    CommandAliasArg = Arg(
+        name: "alias",
+        default: "<url=[path]|directory=[basename]>",
+        description: "The alias for the source or package"
+    )
 
 #[
     The `set` command is responsible for adding a source or package to the configuration file,
@@ -22,29 +39,25 @@ begin SetCommand:
         result = super.execute(console)
 
         let
-            skip = parseBool(console.getOpt("skip-resolution"))
-            force = parseBool(console.getOpt("force"))
-            setUrl = console.getArg("url")
-            setType = console.getArg("type")
-            repository = Repository.init(setUrl)
-        var
-            setAlias = console.getArg("alias").toLower()
-
-        if setAlias == "<path of url>":
-            setAlias = parseUri(repository.url).path.toLower().strip(chars = {'/'})
+            skip = parseBool(console.getOpt(CommandSkipOpt))
+            force = parseBool(console.getOpt(CommandForceOpt))
+            resource = console.getArg(CommandResourceArg)
+            location = console.getArg(CommandLocationArg)
+            repository = Repository.init(location)
+            alias = console.getArg(CommandAliasArg, repository.defaultAlias)
 
         try:
-            case setType:
+            case resource:
                 of "source":
-                    Source.validateName(setAlias)
-                    this.settings.data.sources[setAlias] = Source.init(repository)
+                    Source.validateName(alias)
+                    this.settings.data.sources[alias.toLower()] = Source.init(repository)
                 of "package":
-                    Package.validateName(setAlias)
-                    this.settings.data.packages[setAlias] = Package.init(repository)
+                    Package.validateName(alias)
+                    this.settings.data.packages[alias.toLower()] = Package.init(repository)
         except Exception as e:
-            fail fmt "Invalid {setType} alias specified"
+            fail fmt "Invalid {resource} alias (specify a valid alias)"
             info fmt "> Error: {e.msg}"
-            info fmt "> Alias: {setAlias}"
+            info fmt "> Alias: {alias}"
             return 1
 
         try:
@@ -53,13 +66,13 @@ begin SetCommand:
             if not repository.exists:
                 raise newException(
                     ValueError,
-                    fmt "could not reach repository at {setUrl}"
+                    fmt "could not reach repository at {location}"
                 )
 
         except Exception as e:
             fail fmt "Invalid url specified"
             info fmt "> Error: {e.msg}"
-            info fmt "> URL: {setUrl}"
+            info fmt "> Location: {location}"
             return 2
 
         this.settings.prepare(force = true, save = false)
@@ -69,19 +82,24 @@ begin SetCommand:
 
         if result == 0:
             this.settings.save()
-            print fmt "Successfully added {setType}"
-            print fmt "> URL: {repository.url}"
-            print fmt "> Alias: {setAlias}"
+            print fmt "Successfully added {resource}"
+            print fmt "> Location: {repository.url}"
+            print fmt "> Alias: {alias}"
         else:
-            fail fmt "Unable to update after setting {setType}, no files written"
-            info fmt "> URL: {repository.url}"
-            info fmt "> Alias: {setAlias}"
+            fail fmt "Unable to update after setting {resource}, no files written"
+            info fmt "> Location: {repository.url}"
+            info fmt "> Alias: {alias}"
             result = 10 + result
 
 shape SetCommand: @[
     Command(
         name: "set",
-        description: "Set a source or package URL for the project in the current directory",
+        description: "Set a source or package's location and alias",
+        detail: """
+            This tells percy where to get packages. You can set the location of a single package
+            or add an entirely new source of packages. Source repositories must contain, at minimum,
+            a `packages.json` file, such as the official nim package list and nimble directory.
+        """,
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
@@ -89,20 +107,9 @@ shape SetCommand: @[
             CommandSkipOpt,
         ],
         args: @[
-            Arg(
-                name: "type",
-                values: @["source", "package"],
-                description: "The type of URL to set"
-            ),
-            Arg(
-                name: "url",
-                description: "A valid git URL for the source or package repository"
-            ),
-            Arg(
-                name: "alias",
-                default: "<path of url>",
-                description: "The alias for the source or package"
-            )
+            CommandResourceArg,
+            CommandLocationArg,
+            CommandAliasArg
         ]
     )
 ]
