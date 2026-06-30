@@ -6,13 +6,27 @@ import
 type
     InfoCommand = ref object of BaseGraphCommand
 
+const
+    CommandTypeArg = Arg(
+        name: "type",
+        default: "nimble",
+        values: @["nimble", "lock", "graph"],
+        description: "The type of information to get"
+    )
+
+    CommandJsonOpt = Opt(
+        flag: 'j',
+        name: "json",
+        description: "Get the information as JSON"
+    )
+
 begin InfoCommand:
     method execute(console: Console): int =
         result = super.execute(console)
 
         let
-            infoType = console.getArg("type")
-            useJson = console.getOpt("json") of true
+            infoType = console.getArg(CommandTypeArg)
+            useJson = console.getOpt(CommandJsonOpt) of true
             graph = this.getGraph()
 
         case infoType:
@@ -85,21 +99,12 @@ shape InfoCommand: @[
         name: "info",
         description: "Get useful information about the project in the current directory",
         args: @[
-            Arg(
-                name: "type",
-                default: "nimble",
-                values: @["nimble", "lock", "graph"],
-                description: "The type of information to get"
-            )
+            CommandTypeArg
         ],
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
-            Opt(
-                flag: 'j',
-                name: "json",
-                description: "Get the information as JSON"
-            )
+            CommandJsonOpt
         ]
     )
 ]

@@ -8,21 +8,10 @@ type
     SetCommand = ref object of BaseGraphCommand
 
 const
-    CommandResourceArg = Arg(
-        name: "resource",
-        values: @["source", "package"],
-        description: "The type of resource to set"
-    )
-
-    CommandLocationArg = Arg(
-        name: "location",
-        description: "The location of the git repository (a valid URL or directory)"
-    )
-
     CommandAliasArg = Arg(
         name: "alias",
-        default: "<url=[path]|directory=[basename]>",
-        description: "The alias for the source or package"
+        default: "url=<location:path> | directory=<location:basename>",
+        description: "The name by which the resource can be referenced"
     )
 
 #[

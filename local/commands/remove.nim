@@ -88,8 +88,8 @@ begin RemoveCommand:
         result = super.execute(console)
 
         let
-            skip = parseBool(console.getOpt("skip-resolution"))
-            package = console.getArg("package")
+            skip = parseBool(console.getOpt(CommandSkipOpt))
+            package = console.getArg(CommandPackageArg)
         var
             isRemoved: bool
             newContent: string
@@ -121,10 +121,7 @@ shape RemoveCommand: @[
         name: "remove",
         description: "Remove a dependency from the project in the current directory",
         args: @[
-            Arg(
-                name: "package",
-                description: "The package to remove, an alias or a URL"
-            )
+            CommandPackageArg
         ],
         opts: @[
             CommandConfigOpt,

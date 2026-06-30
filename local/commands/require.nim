@@ -5,6 +5,13 @@ import
 type
     RequireCommand = ref object of BaseGraphCommand
 
+const
+    CommandVersionsArg = Arg(
+        name: "versions",
+        default: "any",
+        description: "A valid versions constraint string such as 'any' or '>= 1.2'"
+    )
+
 begin RequireCommand:
     #[
         Add or update related nimble info for the given requirement
@@ -36,9 +43,9 @@ begin RequireCommand:
         result = super.execute(console)
 
         let
-            skip = parseBool(console.getOpt("skip-resolution"))
-            package = console.getArg("package")
-            versions = console.getArg("versions")
+            skip = parseBool(console.getOpt(CommandSkipOpt))
+            package = console.getArg(CommandPackageArg)
+            versions = console.getArg(CommandVersionsArg)
             graph = this.getGraph()
         var
             isAdded: bool
@@ -91,15 +98,8 @@ shape RequireCommand: @[
         name: "require",
         description: "Add a dependency for the project in the current directory",
         args: @[
-            Arg(
-                name: "package",
-                description: "The package to require, a sourced alias or a URL"
-            ),
-            Arg(
-                name: "versions",
-                default: "any",
-                description: "A valid versions constraint string such as 'any' or '>= 1.2'"
-            )
+            CommandPackageArg,
+            CommandVersionsArg
         ],
         opts: @[
             CommandConfigOpt,

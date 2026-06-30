@@ -5,6 +5,24 @@ import
 type
     MetaCommand = ref object of BaseCommand
 
+const
+    CommandActionArg = Arg(
+        name: "action",
+        values: @["get", "set"],
+        description: "The action that will be performed"
+    )
+
+    CommandPathArg = Arg(
+        name: "path",
+        description: "The dot-separated path to modify (e.g.: maps.myapp)"
+    )
+
+    CommandValueArg = Arg(
+        name: "value",
+        default: "null",
+        description: "For `get`, a default if not set, for `set` the value itself (null unsets)"
+    )
+
 #[
     Get or set meta data in the JSON configuration
 ]#
@@ -38,10 +56,10 @@ begin MetaCommand:
         result = super.execute(console)
 
         let
-            path = console.getArg("path")
-            action = console.getArg("action")
-            value = console.getArg("value")
-            force = parseBool(console.getOpt("force"))
+            path = console.getArg(CommandPathArg)
+            action = console.getArg(CommandActionArg)
+            value = console.getArg(CommandValueArg)
+            force = parseBool(console.getOpt(CommandForceOpt))
         var
             newVal = this.translateValue(value)
             curVal: JsonNode
@@ -98,30 +116,22 @@ shape MetaCommand: @[
     Command(
         name: "meta",
         description: "Get or set meta data for the project in the current directory",
+        detail: """
+            Meta data is used by percy's extended features. It can also store arbitrary data that
+            can be used in your project's build or support scripts by executing `percy meta get`.
+            Since it is stored in the configuration file (`percy.json` by default) file, it is
+            generally committed and version controlled with your project's sources or package
+            overloads.
+        """,
         args: @[
-            Arg(
-                name: "action",
-                values: @["get", "set"],
-                description: "The package to require, a sourced alias or a URL"
-            ),
-            Arg(
-                name: "path",
-                description: "The meta path to get or set (e.g.: maps.myapp)"
-            ),
-            Arg(
-                name: "value",
-                default: "null",
-                description: "For `get`, a default value, for `set` the value to set (null unsets)"
-            )
+            CommandActionArg,
+            CommandPathArg,
+            CommandValueArg
         ],
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
-            Opt(
-                flag: 'f',
-                name: "force",
-                description: "Force operations which are generally considered unsafe"
-            )
+            CommandForceOpt
         ]
     )
 ]

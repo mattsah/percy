@@ -5,6 +5,13 @@ import
 type
     UpdateCommand = ref object of BaseGraphCommand
 
+const
+    CommandPreserveOpt = Opt(
+        flag: 'p',
+        name: "preserve",
+        description: "Preserve all local files by skipping any mapping operations"
+    )
+
 #[
     The update command is responsible for updaing all dependency versions to the latest versions
     that match constraints and writing the solution to the lock file.
@@ -17,9 +24,9 @@ begin UpdateCommand:
         result = super.execute(console)
 
         let
-            force = parseBool(console.getOpt("force"))
-            newest = parseBool(console.getOpt("newest"))
-            preserve = parseBool(console.getOpt("preserve"))
+            force = parseBool(console.getOpt(CommandForceOpt))
+            newest = parseBool(console.getOpt(CommandNewestOpt))
+            preserve = parseBool(console.getOpt(CommandPreserveOpt))
 
         result = this.resolve(newest, preserve, force)
 
@@ -31,16 +38,8 @@ shape UpdateCommand: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
             CommandForceOpt,
-            Opt(
-                flag: 'n',
-                name: "newest",
-                description: "Fetch remote HEADs even if local cache is not stale (true update)"
-            ),
-            Opt(
-                flag: 'p',
-                name: "preserve",
-                description: "Preserve all local files by skipping any mapping operations"
-            )
+            CommandNewestOpt,
+            CommandPreserveOpt
         ]
     )
 ]

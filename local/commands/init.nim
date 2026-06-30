@@ -5,6 +5,31 @@ import
 type
     InitCommand = ref object of BaseCommand
 
+const
+    CommandSourceArg = Arg(
+        name: "source",
+        default: "none, init current directory",
+        description: "An external git repository to be cloned for initialization"
+    )
+
+    CommandTargetArg = Arg(
+        name: "target",
+        default: "<source:basename>",
+        description: "The directory in which the source will be "
+    )
+
+    CommandResetOpt = Opt(
+        flag: 'r',
+        name: "reset",
+        description: "Reset the configuration to defaults (standard nim sources, no meta)"
+    )
+
+    CommandWithoutTasksOpt = Opt(
+        flag: 'w',
+        name: "without-tasks",
+        description: "Do not include nim build/test tasks"
+    )
+
 begin InitCommand:
     #[
         Get the path inclusion content
@@ -104,28 +129,21 @@ begin InitCommand:
         )
 
     #[
-        Create a working copy of the given repository URL and get the path
+        Create a working copy of the given repository
     ]#
-    method createWorkCopy(url: string, target: string): string {. base .} =
-        let
-            repository = Repository.init(url)
+    method createWorkCopy(repository: Repository, workDir: string): void {. base .} =
         var
             output: string
             error: int
 
-        if target == "<repository name>":
-            result = absolutePath(repository.url[repository.url.rfind('/')+1..^1])
-        else:
-            result = absolutePath(target)
-
-        if dirExists(result) or fileExists(result):
+        if dirExists(workDir) or fileExists(workDir):
             raise newException(
                 ValueError,
-                fmt "'{result}' already exists"
+                fmt "'{workDir}' already exists"
             )
 
         error = percy.execCmdCaptureAll(output, @[
-            fmt "git clone {repository.url} {result}"
+            fmt "git clone {repository.url} {workDir}"
         ])
 
         if error:
@@ -134,7 +152,7 @@ begin InitCommand:
 
             raise newException(
                 ValueError,
-                fmt "cloning '{url}' failed"
+                fmt "cloning '{repository.url}' failed"
             )
 
     #[
@@ -191,16 +209,28 @@ begin InitCommand:
         result = super.execute(console)
 
         let
-            skip = parseBool(console.getOpt("skip-resolution"))
-            reset = parseBool(console.getOpt("reset"))
-            without = parseBool(console.getOpt("without-tasks"))
-            target = console.getArg("target")
-            url = console.getArg("url")
+            skip = parseBool(console.getOpt(CommandSkipOpt))
+            reset = parseBool(console.getOpt(CommandResetOpt))
+            without = parseBool(console.getOpt(CommandWithoutTasksOpt))
+            target = console.getArg(CommandTargetArg)
+            source = console.getArg(CommandSourceArg)
+        var
+            workDir: string
 
-        if url != "<none>":
+        if console.hasArg(CommandSourceArg):
             try:
-                setCurrentDir(this.createWorkCopy(url, target))
+                let
+                    repository = this.settings.getRepository(source)
+
+                if not console.hasArg(CommandTargetArg):
+                    workDir = absolutePath(repository.url[repository.url.rfind('/')+1..^1])
+                else:
+                    workDir = absolutePath(target)
+
+                this.createWorkCopy(repository, workDir)
+                setCurrentDir(workDir)
                 this.settings = Settings.open(this.config)
+
             except Exception as e:
                 fail fmt "Cannot initialize external package"
                 info fmt "> Error: {e.msg}"
@@ -224,7 +254,7 @@ begin InitCommand:
             this.settings.prepare(force = true, save = true)
             this.settings.save()
 
-            if url != "<none>":
+            if console.hasArg(CommandSourceArg):
                 let
                     subConsole = this.app.get(Console, false)
                 var
@@ -241,33 +271,17 @@ begin InitCommand:
 shape InitCommand: @[
     Command(
         name: "init",
-        description: "Initialize a project from a url or in the current directory",
+        description: "Initialize a project in the current directory or from an external source",
         args: @[
-            Arg(
-                name: "url",
-                default: "<none>",
-                description: "Initialize an external package or project via a valid Git repository"
-            ),
-            Arg(
-                name: "target",
-                default: "<repository name>",
-                description: "The local directory for an externally initialized package or project"
-            )
+            CommandSourceArg,
+            CommandTargetArg
         ],
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
             CommandSkipOpt,
-            Opt(
-                flag: 'r',
-                name: "reset",
-                description: "Reset the configuration to defaults (standard nim sources, no meta)"
-            ),
-            Opt(
-                flag: 'w',
-                name: "without-tasks",
-                description: "Do not include nim build/test tasks"
-            )
+            CommandResetOpt,
+            CommandWithoutTasksOpt
         ]
     )
 ]

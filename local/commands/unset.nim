@@ -6,17 +6,10 @@ type
     UnsetCommand = ref object of BaseGraphCommand
 
 const
-    CommandResourceArg = Arg(
-        name: "resource",
-        values: @["source", "package"],
-        description: "The type of resource to unset"
-    )
-
     CommandReferenceArg = Arg(
         name: "reference",
-        description: "The reference to unset, an alias or location (URL or local directory)"
+        description: "The resource's alias or location (URL or local directory)"
     )
-
 
 #[
     The `unset` command is responsible for removing a source or package from the configuration
@@ -32,8 +25,8 @@ begin UnsetCommand:
         result = super.execute(console)
 
         let
-            skip = parseBool(console.getOpt("skip-resolution"))
-            force = parseBool(console.getOpt("force"))
+            skip = parseBool(console.getOpt(CommandSkipOpt))
+            force = parseBool(console.getOpt(CommandForceOpt))
             resource = console.getArg(CommandResourceArg)
             reference = console.getArg(CommandReferenceArg)
         var

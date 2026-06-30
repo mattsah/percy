@@ -14,7 +14,7 @@ begin InstallCommand:
         result = super.execute(console)
 
         let
-            force = parseBool(console.getOpt("force"))
+            force = parseBool(console.getOpt(CommandForceOpt))
             loader = this.getLoader()
         var
             lockFile: LockFile

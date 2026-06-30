@@ -43,13 +43,35 @@ const
     CommandForceOpt* = Opt(
         flag: 'f',
         name: "force",
-        description: "Force checkouts which may otherwise destroy unsaved work in vendor"
+        description: "Force operations which may be destructive or unsafe"
     )
 
     CommandSkipOpt* = Opt(
         flag: 's',
         name: "skip-resolution",
         description: "Skip resolution (i.e. don't build out vendor, just manage config)"
+    )
+
+    CommandNewestOpt* = Opt(
+        flag: 'n',
+        name: "newest",
+        description: "Ensure all dependencies are up-to-date before running"
+    )
+
+    CommandLocationArg* = Arg(
+        name: "location",
+        description: "The location of the git repository (a valid URL or directory)"
+    )
+
+    CommandResourceArg* = Arg(
+        name: "resource",
+        values: @["source", "package"],
+        description: "The type of resource to modify"
+    )
+
+    CommandPackageArg* = Arg(
+        name: "package",
+        description: "The package alias or location (URL or local directory)"
     )
 
 begin BaseCommand:

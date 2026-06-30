@@ -6,6 +6,32 @@ import
 type
     FetchCommand = ref object of BaseCommand
 
+const
+    CommandVersionArg = Arg(
+        name: "version",
+        default: "head",
+        description: "The specific version (tag, branch, etc) to fetch, build and install"
+    )
+
+    CommandBinDirOpt = Opt(
+        flag: 'b',
+        name: "bin-directory",
+        default: percy.getAppLocalDir("bin"),
+        description: "Where links to built binaries are stored (should be in your path)"
+    )
+
+    CommandKeepOpt = Opt(
+        flag: 'k',
+        name: "keep",
+        description: "Keep other versions for faster switching"
+    )
+
+    CommandDeleteOpt = Opt(
+        flag: 'd',
+        name: "delete",
+        description: "Delete all builds or a specific version of a build"
+    )
+
 #[
 
 ]#
@@ -126,19 +152,19 @@ begin FetchCommand:
             if symlinkExists(linkPath):
                 let
                     currentPath = expandSymLink(linkPath).replace(percy.getAppLocalDir(), "%")
-                if currentPath == file and secureHashFile(currentPath) == secureHashFile(file):
-                    warn fmt "Existing Binary Link Is Latest"
+                if currentPath == targetPath and secureHashFile(linkPath) == secureHashFile(file):
+                    warn fmt "Existing binary link is the latest"
                     info fmt "> Link: {linkPath}"
                     info fmt "> Current Target: {currentPath}"
                     continue
                 else:
-                    warn fmt "Replacing Existing Binary Link"
+                    warn fmt "Replacing existing binary link"
                     info fmt "> Path: {linkPath}"
                     info fmt "> Current Target: {currentPath}"
                     info fmt "> New Target: {targetPath}"
                     removeFile(linkPath)
             else:
-                event fmt "Creating Binary Link"
+                event fmt "Creating binary link"
                 print fmt "> Link: {linkPath}"
                 print fmt "> Binary: {targetPath}"
 
@@ -154,12 +180,12 @@ begin FetchCommand:
         const
             buildDir = percy.getAppLocalDir("build")
         let
-            url = console.getArg("url")
-            version = console.getArg("version")
-            binDir = absolutePath(console.getOpt("bin-directory").expandTilde())
-            delete = parseBool(console.getOpt("delete"))
-            newest = parseBool(console.getOpt("newest"))
-            keep = parseBool(console.getOpt("keep"))
+            location = console.getArg(CommandLocationArg)
+            version = console.getArg(CommandVersionArg)
+            binDir = absolutePath(console.getOpt(CommandBinDirOpt).expandTilde())
+            delete = parseBool(console.getOpt(CommandDeleteOpt))
+            newest = parseBool(console.getOpt(CommandNewestOpt))
+            keep = parseBool(console.getOpt(CommandKeepOpt))
         var
             commit: Commit
             repository: Repository
@@ -168,6 +194,9 @@ begin FetchCommand:
             output: string
             error: int
 
+        repository = this.settings.getRepository(location)
+        workDir = buildDir / repository.shaHash
+
         if not dirExists(binDir):
             createDir(binDir)
 
@@ -175,9 +204,6 @@ begin FetchCommand:
             createDir(buildDir)
 
         setCurrentDir(buildDir)
-
-        repository = Repository.init(url)
-        workDir = buildDir / repository.shaHash
 
         try:
             discard repository.clone()
@@ -207,7 +233,7 @@ begin FetchCommand:
                 info fmt "> Error: no versions of the requested repository exist"
                 return 3
             else:
-                if version == "any":
+                if version == "head":
                     print fmt "Removing All Versions of Request Repository"
                     print fmt "> Path: {workDir}"
                     removeDir(workDir)
@@ -301,42 +327,18 @@ begin FetchCommand:
 shape FetchCommand: @[
     Command(
         name: "fetch",
-        description: "Download and build applications from a remote repository URL",
+        description: "Download and build an application from a repository",
         args: @[
-            Arg(
-                name: "url",
-                description: "A valid git URL for the repository to fetch and build"
-            ),
-            Arg(
-                name: "version",
-                default: "any",
-                description: "The version to fetch and build"
-            )
+            CommandLocationArg,
+            CommandVersionArg
         ],
         opts: @[
             CommandConfigOpt,
             CommandVerbosityOpt,
-            Opt(
-                flag: 'b',
-                name: "bin-directory",
-                default: percy.getAppLocalDir("bin"),
-                description: "Change where the binary links are stored"
-            ),
-            Opt(
-                flag: 'n',
-                name: "newest",
-                description: "Ensure the version being fetched is fully up-to-date"
-            ),
-            Opt(
-                flag: 'k',
-                name: "keep",
-                description: "Keep other versions for faster switching"
-            ),
-            Opt(
-                flag: 'd',
-                name: "delete",
-                description: "Delete all builds or a specific version of a build"
-            )
+            CommandBinDirOpt,
+            CommandNewestOpt,
+            CommandKeepOpt,
+            CommandDeleteOpt
         ]
     )
 ]
