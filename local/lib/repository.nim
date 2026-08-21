@@ -162,7 +162,7 @@ begin Repository:
             result = true
         else:
             error = percy.execCmd(@[
-                fmt "git ls-remote '{this.url}' 'null'"
+                fmt "git ls-remote {this.url} null"
             ])
 
             result = error == 0
