@@ -201,10 +201,12 @@ begin Repository:
 
         error = this.exec(
             @[
-                fmt """git fetch origin -f --prune""",
-                fmt """"+refs/tags/*:refs/{percy.name}/*"""",
-                fmt """"+refs/heads/*:refs/{percy.name}/head@*"""",
-                fmt """"HEAD""""
+                fmt "git fetch origin -f --prune",
+                quoteShellCommand(@[
+                    fmt "+refs/tags/*:refs/{percy.name}/*",
+                    fmt "+refs/heads/*:refs/{percy.name}/head@*",
+                    fmt "HEAD"
+                ])
             ],
             output
         )
