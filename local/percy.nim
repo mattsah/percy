@@ -33,7 +33,7 @@ proc getVendorDir*(subdir: string = ""): string =
 ]#
 proc getAppLocalDir*(subdir: string = ""): string =
     if defined windows:
-        result = getHomeDir() / '.' & percy.name / subdir
+        result = getHomeDir() / ('.' & percy.name) / subdir
     else:
         result = getDataDir() / percy.name / subdir
 
@@ -42,7 +42,7 @@ proc getAppLocalDir*(subdir: string = ""): string =
 ]#
 proc getAppCacheDir*(subdir: string = ""): string =
     if defined windows:
-        result = getHomeDir() / '.' & percy.name / "cache" / subdir
+        result = getHomeDir() / ('.' & percy.name) / "cache" / subdir
     else:
         result = getCacheDir() / percy.name / subdir
 
