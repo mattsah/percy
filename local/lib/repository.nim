@@ -248,7 +248,11 @@ begin Repository:
             print fmt "> Hash: {this.shaHash}"
 
         error = percy.execCmdCaptureAll(output, @[
-            fmt "git clone --bare {this.url} {this.cacheDir}"
+            fmt "git clone --bare",
+            quoteShellCommand(@[
+                fmt "{this.url}",
+                fmt "{this.cacheDir}"
+            ])
         ])
 
         if error:
@@ -395,6 +399,7 @@ begin Repository:
             hash = "%(if:equals=tag)%(objecttype)%(then)%(*objectname)%(else)%(objectname)%(end)"
         let
             prefix = fmt "{percy.name}/"
+            format = quoteShell(fmt "{tag} {hash}")
         var
             error: int
             output: string
@@ -402,8 +407,10 @@ begin Repository:
 
         error = this.exec(
             @[
-                fmt "git for-each-ref --omit-empty --format='{tag} {hash}'",
-                fmt "'refs/{percy.name}/*'"
+                fmt "git for-each-ref --omit-empty --format={format}",
+                quoteShellCommand(@[
+                    fmt "refs/{percy.name}/*"
+                ])
             ],
             output
         )
@@ -461,7 +468,15 @@ begin Repository:
         when debugging(2):
             print fmt "Listing directory {directory} on {this.url} ({this.shaHash})"
 
-        error = this.exec(@[fmt "git ls-tree --name-only {directory}"], output)
+        error = this.exec(
+            @[
+                fmt "git ls-tree --name-only",
+                quoteShellCommand(@[
+                    fmt "{directory}"
+                ])
+            ],
+            output
+        )
 
         if error != 0:
             raise newException(
@@ -482,7 +497,15 @@ begin Repository:
         when debugging(2):
             print fmt "Reading file {file} on {this.url} ({this.shaHash})"
 
-        error = this.exec(@[fmt "git show {file}"], result)
+        error = this.exec(
+            @[
+                fmt "git show",
+                quoteShellCommand(@[
+                    fmt "{file}"
+                ])
+            ],
+            result
+        )
 
         if error != 0:
             raise newException(
