@@ -39,15 +39,15 @@ import
 
 proc build(args: seq[string]): void =
     var
-        cfg = parseJson("{\"namedbin\":{},\"srcDir\":\".\",\"binDir\":\".\"}")
+        cfg = parseJson("{\"namedBin\":{},\"srcDir\":\".\",\"binDir\":\".\"}")
     when defined(windows):
         let
-            (info, error) = gorgeEx("percy info -j 2>NUL")
+            (output, error) = gorgeEx("cmd /c\"percy info -j 2>NUL\"")
     else:
         let
-            (info, error) = gorgeEx("percy info -j 2>/dev/null")
+            (output, error) = gorgeEx("percy info -j 2>/dev/null")
     if error == 0:
-        cfg = parseJson(info)
+        cfg = parseJson(output)
 
     let
         srcDir = strip(cfg["srcDir"].getStr(), leading = false, chars = {'/'}) & "/"
