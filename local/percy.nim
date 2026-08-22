@@ -32,13 +32,19 @@ proc getVendorDir*(subdir: string = ""): string =
     Get the application's local dir or a subdirectory of it
 ]#
 proc getAppLocalDir*(subdir: string = ""): string =
-    result = getDataDir() / percy.name / subdir
+    if defined windows:
+        result = getHomeDir() / '.' & percy.name / subdir
+    else:
+        result = getDataDir() / percy.name / subdir
 
 #[
     Get the application's cache dir or a subdirectory of it
 ]#
 proc getAppCacheDir*(subdir: string = ""): string =
-    result = getCacheDir() / percy.name / subdir
+    if defined windows:
+        result = getHomeDir() / '.' & percy.name / "cache" / subdir
+    else:
+        result = getCacheDir() / percy.name / subdir
 
 #[
     Execute a sequence as a command
