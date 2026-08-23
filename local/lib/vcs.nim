@@ -15,7 +15,7 @@ proc controlled*(targetDir: string): bool =
                 error = percy.execCmdCapture(output, @[
                     fmt "git rev-parse --git-dir"
                 ])
-                echo error
+                echo output
         ),
         targetDir
     )
