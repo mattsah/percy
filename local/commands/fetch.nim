@@ -148,28 +148,44 @@ begin FetchCommand:
             let
                 linkPath = binDir / file.extractFilename()
                 targetPath = file.replace(percy.getAppLocalDir(), "%")
+                targetHash = secureHashFile(file)
 
             if symlinkExists(linkPath):
                 let
                     currentPath = expandSymLink(linkPath).replace(percy.getAppLocalDir(), "%")
-                if currentPath == targetPath and secureHashFile(linkPath) == secureHashFile(file):
-                    warn fmt "Existing binary link is the latest"
+                    currentHash = secureHashFile(linkPath)
+                if currentPath == targetPath and currentHash == targetHash:
+                    warn fmt "Existing binary link is current"
                     info fmt "> Link: {linkPath}"
                     info fmt "> Current Target: {currentPath}"
                     continue
                 else:
-                    warn fmt "Replacing existing binary link"
-                    info fmt "> Path: {linkPath}"
-                    info fmt "> Current Target: {currentPath}"
-                    info fmt "> New Target: {targetPath}"
+                    warn fmt "Removing existing binary link"
+                    info fmt "> Link: {linkPath}"
                     removeFile(linkPath)
-            else:
-                event fmt "Creating binary link"
+            elif fileExists(linkPath):
+                let
+                    currentHash = secureHashFile(file)
+                if currentHash == targetHash:
+                    warn fmt "Existing binary copy is current"
+                    info fmt "> Copy: {linkPath}"
+                    info fmt "> Target: {targetPath}"
+                    continue
+                else:
+                    warn fmt "Removing existing binary copy"
+                    info fmt "> Copy: {linkPath}"
+                    removeFile(linkPath)
+
+            try:
+                createSymlink(file, linkPath)
+                event fmt "Created binary link"
                 print fmt "> Link: {linkPath}"
-                print fmt "> Binary: {targetPath}"
-
-            createSymlink(file, linkPath)
-
+                print fmt "> Target: {targetPath}"
+            except OSError:
+                copyFile(file, linkPath)
+                event fmt "Created binary copy"
+                print fmt "> Copy: {linkPath}"
+                print fmt "> Target: {targetPath}"
 
     #[
 
