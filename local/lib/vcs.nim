@@ -16,7 +16,7 @@ proc controlled*(targetDir: string): bool =
         ),
         targetDir
     )
-
+    echo error
     return error == 0
 
 proc commonDirectory*(targetDir: string): string =
