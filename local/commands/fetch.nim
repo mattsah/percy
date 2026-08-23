@@ -119,8 +119,11 @@ begin FetchCommand:
                 break
 
         for srcName, binName in nimbleInfo.namedBin:
-            let
+            var
                 filePath = absolutePath(getCurrentDir() / nimbleInfo.binDir) / binName
+
+            if defined windows:
+                filePath = filePath & ".exe"
 
             result.incl(filePath)
 
