@@ -10,12 +10,9 @@ proc controlled*(targetDir: string): bool =
     percy.execIn(
         ExecHook as (
             block:
-                echo targetDir
-                echo getCurrentDir()
                 error = percy.execCmdCapture(output, @[
                     fmt "git rev-parse --git-dir"
                 ])
-                echo output
         ),
         targetDir
     )

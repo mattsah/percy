@@ -57,7 +57,7 @@ proc execCmd*(parts: seq[string]): int =
 ]#
 proc execCmdCapture*(output: var string, parts: seq[string]): int =
     when defined windows:
-        (output, result) = execCmdEx(parts.join(" ") & " 2>NUL")
+        (output, result) = execCmdEx("cmd.exe /c\"" & parts.join(" ") & " 2>NUL" & "\"")
     else:
         (output, result) = execCmdEx(parts.join(" ") & " 2>/dev/null")
 
