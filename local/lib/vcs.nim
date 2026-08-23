@@ -16,6 +16,8 @@ proc controlled*(targetDir: string): bool =
         ),
         targetDir
     )
+    echo targetDir
+    echo getCurrentDir()
     echo error
     return error == 0
 

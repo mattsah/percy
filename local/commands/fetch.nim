@@ -151,13 +151,11 @@ begin FetchCommand:
             let
                 linkPath = binDir / file.extractFilename()
                 targetPath = file.replace(percy.getAppLocalDir(), "%")
-                targetHash = secureHashFile(file)
 
             if symlinkExists(linkPath):
                 let
                     currentPath = expandSymLink(linkPath).replace(percy.getAppLocalDir(), "%")
-                    currentHash = secureHashFile(linkPath)
-                if currentPath == targetPath and currentHash == targetHash:
+                if currentPath == targetPath:
                     warn fmt "Existing binary link is current"
                     info fmt "> Link: {linkPath}"
                     info fmt "> Current Target: {currentPath}"
@@ -168,11 +166,12 @@ begin FetchCommand:
                     removeFile(linkPath)
             elif fileExists(linkPath):
                 let
+                    targetHash = secureHashFile(file)
                     currentHash = secureHashFile(linkPath)
                 if currentHash == targetHash:
                     warn fmt "Existing binary copy is current"
                     info fmt "> Copy: {linkPath}"
-                    info fmt "> Target: {targetPath}"
+                    info fmt "> Current Hash: {currentHash}"
                     continue
                 else:
                     warn fmt "Removing existing binary copy"
