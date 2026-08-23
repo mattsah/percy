@@ -168,7 +168,7 @@ begin FetchCommand:
                     removeFile(linkPath)
             elif fileExists(linkPath):
                 let
-                    currentHash = secureHashFile(file)
+                    currentHash = secureHashFile(linkPath)
                 if currentHash == targetHash:
                     warn fmt "Existing binary copy is current"
                     info fmt "> Copy: {linkPath}"
