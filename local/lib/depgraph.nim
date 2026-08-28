@@ -366,7 +366,7 @@ begin DepGraph:
                     info fmt "> Requirement: {e.requirement.package} @ {e.requirement.versions}"
             with e of ValueError:
                 warn fmt "Graph: Excluding Commit (Failed Resolving Nimble File)"
-                info fmt "> Error: {getCurrentExceptionMsg()}"
+                info fmt "> Error: {e.msg}"
 
             info fmt "> Commit Repository URL: {commit.repository.url}"
             info fmt "> Commit Repository Hash: {commit.repository.shaHash}"
