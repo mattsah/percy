@@ -3,6 +3,7 @@ import
     semver,
     lib/settings,
     lib/repository,
+    lib/links,
     mininim/cli
 
 export
@@ -46,6 +47,7 @@ type
         tracking: OrderedTable[Repository, OrderedSet[Commit]]
         requirements: Table[Commit, seq[Requirement]]
         settings: Settings
+        links: Links
 
     DecisionLevel = int
 
@@ -137,9 +139,12 @@ begin DepGraph:
     method init*(settings: Settings, quiet: bool = true): void {. base .} =
         this.quiet    = quiet
         this.settings = settings
+        this.links    = readLinks()
 
     method checkConstraint*(requirement: Requirement, commit: Commit): bool {. base .} =
-        if requirement.constraint.check(commit.version):
+        if requirement.repository.url in this.links:
+            result = true
+        elif requirement.constraint.check(commit.version):
             result = true
         elif requirement.constraint.check(ver(commit.id)):
             result = true
@@ -328,8 +333,14 @@ begin DepGraph:
             print fmt "> Source: {commit.repository.url} @ {commit.version}"
 
         try:
-            for file in commit.repository.listDir("/", commit.id):
-                if file.endsWith(".nimble"):
+            if commit.repository.url in this.links:
+                for file in walkDir(this.links[commit.repository.url]):
+                    if file.path.endsWith(".nimble"):
+                        commit.info = parser.parse(readFile(file.path))
+                        break
+            else:
+                for file in commit.repository.listDir("/", commit.id):
+                    if file.endsWith(".nimble"):
                         let
                             contents = commit.repository.readFile(file, commit.id)
                         when debugging(3):
@@ -377,6 +388,29 @@ begin DepGraph:
 
     ]#
     method expandCommits*(requirement: Requirement): void {. base .} =
+        if requirement.repository.url in this.links:
+            if not this.commits.hasKey(requirement.repository):
+                if not this.quiet:
+                    print fmt "Graph: Adding Repository (Using Linked Directory)"
+                    print fmt "> Repository URL: {requirement.repository.url}"
+                    print fmt "> Repository Hash: {requirement.repository.shaHash}"
+
+                var output: string
+                percy.execIn(
+                    ExecHook as (
+                        block:
+                            discard percy.execCmdCaptureAll(output, @["git rev-parse HEAD"])
+                    ),
+                    this.links[requirement.repository.url]
+                )
+                this.commits[requirement.repository] = initOrderedSet[Commit]()
+                let head = output.strip()
+                if head.len == 40:
+                    this.commits[requirement.repository].incl(
+                        Commit(id: head, version: ver("head"), repository: requirement.repository)
+                    )
+            return
+
         if not this.commits.hasKey(requirement.repository):
             if requirement.repository.exists:
                 if not this.quiet:
@@ -428,15 +462,17 @@ begin DepGraph:
                     toResolve = HashSet[Commit]()
                     toRemove = Table[Commit, string]()
 
+                let isLinked = requirement.repository.url in this.links
+
                 for commit in this.commits[requirement.repository]:
                     if not this.requirements.hasKey(commit):
                         if depth == 0:
-                            if not this.checkConstraint(requirement, commit):
+                            if not isLinked and not this.checkConstraint(requirement, commit):
                                 toRemove[commit] = "Not Usable At Top-Level"
                             else:
                                 toResolve.incl(commit)
                         else:
-                            if this.checkConstraint(requirement, commit):
+                            if isLinked or this.checkConstraint(requirement, commit):
                                 toResolve.incl(commit)
 
                 for commit, reason in toRemove:
