@@ -69,7 +69,7 @@ begin Repository:
         if uri.scheme.len == 0: # optimized
             if dirExists(uri.path / ".git"):
                 uri.path = absolutePath(uri.path)
-            elif uri.path.match(re"^.+\@.+\:.+$"):
+            elif uri.path.match(re2"^.+\@.+\:.+$"):
                 var
                     parts = uri.path.split(':')
                     uhost = parts[0].split('@')

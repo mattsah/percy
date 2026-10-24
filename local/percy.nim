@@ -1,7 +1,6 @@
 import
     mininim,
     semver,
-    std/re,
     std/osproc,
     nimble/parser
 
@@ -100,14 +99,14 @@ proc execIn*(callback: ExecHook, dir: string = percy.getAppLocalDir()): void =
 proc ver*(version: string): Version =
     let
         lowered = version.toLower()
-        cleaned = lowered.replace(re"[!@#$%^&*+_.,/]", "-")
+        cleaned = lowered.replace(re2"[!@#$%^&*+_.,/]", "-")
 
     if lowered in ["any", "head"]: # any or explit HEAD
         return v("0.0.0-HEAD")
     if lowered.startsWith("head@"): # explicit branch
         return v("0.0.0-branch." & cleaned[5..^1])
-    if lowered.len >= 4 and lowered.len <= 40 and lowered.match(re"^[a-f0-9]+$"): # implicit commit
-        if lowered.len == 8 and lowered.match(re"^[0-9]+$"):
+    if lowered.len >= 4 and lowered.len <= 40 and lowered.match(re2"^[a-f0-9]+$"): # implicit commit
+        if lowered.len == 8 and lowered.match(re2"^[0-9]+$"):
             let
                 year = lowered[0..3]
                 month = lowered[4..5]
@@ -115,7 +114,7 @@ proc ver*(version: string): Version =
             if year >= "2010" and month >= "01" and month <= "12" and day <= "31":
                 return v(fmt "{year}.{$parseInt(month)}.{$parseInt(day)}")
         return v("0.0.0-commit." & lowered)
-    if lowered.match(re"^v?[0-9]+\.[0-9]+(\.[0-9]+)?.*"): # implicit version tag
+    if lowered.match(re2"^v?[0-9]+\.[0-9]+(\.[0-9]+)?.*"): # implicit version tag
         var
             dotCount = 0
             versionTail: string
