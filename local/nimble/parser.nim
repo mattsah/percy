@@ -8,7 +8,7 @@
     package, but for now it just chills here.
 ]#
 import
-    std/re,
+    regex,
     std/json,
     std/sets,
     std/tables,
@@ -148,7 +148,7 @@ proc parse*(source: string, map: var string): NimbleFileInfo =
                 requires.add(requiring)
                 requiring = ""
 
-        if line.match(re("""^\s*requires\s*"""")):
+        if line.startsWith(re2("""^\s*requires\s*"""")):
             indenting = ""
             requiring = line[line.find('"')..^1]
             for i in line:
@@ -161,9 +161,9 @@ proc parse*(source: string, map: var string): NimbleFileInfo =
 
         for kind, items in params:
             for item in items:
-                if line.match(re("^" & item & """\[.*\]\s*=""")):
+                if line.startsWith(re2("^" & item & """\[.*\]\s*=""")):
                     discard
-                elif line.match(re("^" & item & """\s*=""")) and not mapped.contains(item):
+                elif line.startsWith(re2("^" & item & """\s*=""")) and not mapped.contains(item):
                     try:
                         var
                             node: JsonNode

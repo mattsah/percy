@@ -6,12 +6,9 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install PCRE
-        run: sudo apt-get update && sudo apt-get install -y libpcre3
 
       - uses: jiro4989/setup-nim-action@v2
         with:

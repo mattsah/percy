@@ -1,7 +1,6 @@
 import
     percy,
     semver,
-    std/re,
     std/uri,
     std/hashes,
     checksums/sha1
